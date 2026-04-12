@@ -4,6 +4,7 @@
 
 USING_NS_CC;
 
+// 创建主牌区视图。
 MainAreaView* MainAreaView::create()
 {
     auto* view = new (std::nothrow) MainAreaView();
@@ -16,6 +17,7 @@ MainAreaView* MainAreaView::create()
     return nullptr;
 }
 
+// 初始化尺寸与锚点。
 bool MainAreaView::init()
 {
     if (!Node::init())
@@ -30,8 +32,10 @@ bool MainAreaView::init()
     return true;
 }
 
+// 按布局创建全部槽位视图并绑定回调。
 void MainAreaView::setupFromLayout(const LayoutConfig& layout)
 {
+    // 切布局时直接重建全部槽位视图，避免遗留旧布局节点。
     for (auto* view : _slotViews)
     {
         view->removeFromParent();
@@ -55,7 +59,7 @@ void MainAreaView::setupFromLayout(const LayoutConfig& layout)
                                                                    _areaWidth,
                                                                    _areaHeight);
 
-        // 双击回调
+        // MainAreaView 只做输入转发，不直接处理业务逻辑。
         slotView->setTapCallback([this](int slotIndex) {
             if (_onSlotDoubleTap) _onSlotDoubleTap(slotIndex);
         });
@@ -71,7 +75,7 @@ void MainAreaView::setupFromLayout(const LayoutConfig& layout)
             if (_onDragEnd) _onDragEnd(slotIndex, worldPos);
         });
 
-        // 旋转：以左下角为圆心，顺时针为正
+        // 旋转槽位时锚点切到左下角，保证和布局几何计算口径一致。
         if (slotLayout.rotation != 0.0f)
         {
             slotView->setAnchorPoint(Vec2(0.0f, 0.0f));
@@ -84,12 +88,14 @@ void MainAreaView::setupFromLayout(const LayoutConfig& layout)
             slotView->setPosition(resolvedPos);
         }
 
+        // cocos 的 zOrder 越大越靠前，因此这里把 layer 反向映射。
         addChild(slotView, maxLayer - slotLayout.layer);
 
         _slotViews.push_back(slotView);
     }
 }
 
+// 根据状态层数据批量刷新槽位。
 void MainAreaView::updateAllSlots(const std::vector<CardSlot>& slots)
 {
     for (int i = 0; i < static_cast<int>(slots.size()) && i < static_cast<int>(_slotViews.size()); ++i)
@@ -98,34 +104,41 @@ void MainAreaView::updateAllSlots(const std::vector<CardSlot>& slots)
     }
 }
 
+// 获取指定索引的槽位视图。
 CardSlotView* MainAreaView::getSlotView(int index) const
 {
     if (index < 0 || index >= static_cast<int>(_slotViews.size())) return nullptr;
     return _slotViews[index];
 }
 
+// 设置双击槽位回调。
 void MainAreaView::setSlotTapCallback(const SlotTapCallback& cb)
 {
     _onSlotDoubleTap = cb;
 }
 
+// 设置拖拽开始回调。
 void MainAreaView::setDragStartCallback(const DragStartCallback& cb)
 {
     _onDragStart = cb;
 }
 
+// 设置拖拽移动回调。
 void MainAreaView::setDragMoveCallback(const DragMoveCallback& cb)
 {
     _onDragMove = cb;
 }
 
+// 设置拖拽结束回调。
 void MainAreaView::setDragEndCallback(const DragEndCallback& cb)
 {
     _onDragEnd = cb;
 }
 
+// 批量更新高亮状态，索引与槽位对齐。
 void MainAreaView::updateHighlights(const std::vector<bool>& highlightStates)
 {
+    // 高亮只关心“当前可操作的顶牌”。
     for (int i = 0; i < static_cast<int>(_slotViews.size()); ++i)
     {
         auto* slotView = _slotViews[i];

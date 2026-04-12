@@ -7,10 +7,12 @@
 
 USING_NS_CC;
 
+// 切换自定义布局模式，并同步隐藏/显示玩法 UI。
 void GameScene::toggleCustomLayoutMode()
 {
     if (_customLayoutEditor == nullptr) return;
 
+    // 自定义布局模式和正式玩法模式互斥，切换时同步隐藏主玩法视图。
     _customLayoutEditor->toggle();
     const bool gameplayVisible = isGameplayMode();
     _mainArea->setVisible(gameplayVisible);
@@ -22,8 +24,10 @@ void GameScene::toggleCustomLayoutMode()
     updateLevelSelectorUI();
 }
 
+// 自定义布局保存成功后的处理：刷新列表并切换到新布局。
 void GameScene::onCustomLayoutSaved(const std::string& relativePath, const std::string& layoutName)
 {
+    // 保存成功后立即刷新布局列表，并尝试切到刚保存的新布局。
     _mainArea->setVisible(true);
     _topArea->setVisible(true);
     if (_undoMenuItem) _undoMenuItem->setEnabled(true);

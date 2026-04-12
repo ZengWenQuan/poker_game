@@ -14,6 +14,7 @@ GameLogger& GameLogger::getInstance()
     return instance;
 }
 
+// 初始化日志文件并输出首次记录。
 bool GameLogger::initialize()
 {
     std::string logFilePath;
@@ -28,6 +29,7 @@ bool GameLogger::initialize()
         const std::string logDir = fileUtils->getWritablePath() + "logs/";
         fileUtils->createDirectory(logDir);
 
+        // 每次启动生成独立日志文件，便于按会话排查问题。
         _logFilePath = logDir + "game_" + buildTimestamp(true) + ".log";
         _stream.open(_logFilePath, std::ios::out | std::ios::app);
         if (!_stream.is_open())
@@ -44,6 +46,7 @@ bool GameLogger::initialize()
     return true;
 }
 
+// 关闭文件流并写入收尾日志。
 void GameLogger::shutdown()
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -60,10 +63,12 @@ void GameLogger::shutdown()
     _initialized = false;
 }
 
+// 输出一条已格式化日志到控制台与文件。
 void GameLogger::log(Level level, const char* file, int line, const std::string& message)
 {
     std::lock_guard<std::mutex> lock(_mutex);
 
+    // 统一输出“时间 + 级别 + 文件行号 + 文本”格式，便于直接回溯代码。
     std::ostringstream oss;
     oss << "[" << buildTimestamp(false) << "] "
         << "[" << levelToString(level) << "] "
@@ -126,6 +131,7 @@ std::string GameLogger::buildTimestamp(bool forFileName) const
 
 std::string GameLogger::vformat(const char* fmt, va_list args) const
 {
+    // 先计算格式化长度，再按需分配缓冲区。
     va_list argsCopy;
     va_copy(argsCopy, args);
     const int size = std::vsnprintf(nullptr, 0, fmt, argsCopy);

@@ -22,6 +22,9 @@ Vec2 resolveSlotPosition(const SlotLayout& slot,
                          float areaWidth,
                          float areaHeight)
 {
+    // 兼容两种布局坐标体系：
+    // 1. 绝对坐标：x/y 直接就是场景位置
+    // 2. 局部坐标：x/y 相对于各自主牌堆中心，便于模板复制
     if (!usePileCenterOrigin)
     {
         return Vec2(slot.x, slot.y);
@@ -57,6 +60,7 @@ std::array<Vec2, 4> buildCardPolygon(const SlotLayout& slot, bool usePileCenterO
     const float cardHeight = PokerCardView::getCardHeight();
     const Vec2 bottomLeft(center.x - cardWidth * 0.5f, center.y - cardHeight * 0.5f);
 
+    // 统一把牌抽象成四边形，后续无论是否旋转都走同一套重叠检测逻辑。
     std::array<Vec2, 4> corners = {
         bottomLeft,
         Vec2(bottomLeft.x + cardWidth, bottomLeft.y),
@@ -138,6 +142,7 @@ bool pointInConvexQuad(const Vec2& point, const std::array<Vec2, 4>& quad)
 
 bool polygonsOverlap(const std::array<Vec2, 4>& lhs, const std::array<Vec2, 4>& rhs)
 {
+    // 先检测边相交，再补“一个四边形完全包含另一个”的情况。
     for (int i = 0; i < 4; ++i)
     {
         const Vec2& lhsA = lhs[i];
@@ -160,6 +165,7 @@ bool polygonsOverlap(const std::array<Vec2, 4>& lhs, const std::array<Vec2, 4>& 
 
 void rebuildDynamicCovers(std::vector<SlotLayout>& slots, bool usePileCenterOrigin, int mainPileCount)
 {
+    // 先缓存每张牌的多边形，避免两两比较时重复构建几何数据。
     std::vector<std::array<Vec2, 4>> polygons;
     polygons.reserve(slots.size());
     for (const auto& slot : slots)
@@ -180,6 +186,7 @@ void rebuildDynamicCovers(std::vector<SlotLayout>& slots, bool usePileCenterOrig
         for (int upperIndex = 0; upperIndex < static_cast<int>(slots.size()); ++upperIndex)
         {
             const auto& upperSlot = slots[upperIndex];
+            // layer 越小越靠上，因此只有更上层的牌才可能压住当前槽位。
             if (upperSlot.layer >= lowerSlot.layer) continue;
 
             if (polygonsOverlap(lowerPolygon, polygons[upperIndex]))
@@ -195,6 +202,7 @@ void LayoutConfig::rebuildDynamicCoversForSlots(std::vector<SlotLayout>& slots,
                                                 bool usePileCenterOrigin,
                                                 int mainPileCount)
 {
+    // 运行时与编辑器共用的遮挡重建入口。
     rebuildDynamicCovers(slots, usePileCenterOrigin, mainPileCount);
 }
 
@@ -204,11 +212,14 @@ cocos2d::Vec2 LayoutConfig::resolveSlotPosition(const SlotLayout& slot,
                                                 float areaWidth,
                                                 float areaHeight)
 {
+    // 对外暴露的坐标解析入口。
     return ::resolveSlotPosition(slot, usePileCenterOrigin, mainPileCount, areaWidth, areaHeight);
 }
 
+// 解析布局 JSON，必要时复制模板并重建 covers。
 bool LayoutConfig::loadFromFile(const std::string& filePath)
 {
+    // 统一通过 cocos 资源系统解析路径，避免不同平台路径规则不一致。
     std::string fullPath = cocos2d::FileUtils::getInstance()->fullPathForFilename(filePath);
     if (fullPath.empty())
     {
@@ -245,6 +256,7 @@ bool LayoutConfig::loadFromFile(const std::string& filePath)
     _usePileCenterOrigin = false;
     if (doc.HasMember("mainPileCount") && doc["mainPileCount"].IsInt())
     {
+        // 声明 mainPileCount 即代表布局按“牌堆中心”为局部原点来表达位置。
         _mainPileCount = std::max(1, doc["mainPileCount"].GetInt());
         _usePileCenterOrigin = true;
     }
@@ -285,6 +297,8 @@ bool LayoutConfig::loadFromFile(const std::string& filePath)
 
     if (shouldDuplicateTemplate)
     {
+        // 若 JSON 只描述了单个牌堆模板，则在这里按 mainPileCount 自动复制，
+        // 同时重映射 id 和 covers，避免资源侧重复书写。
         const std::vector<SlotLayout> templateSlots = _slots;
         std::unordered_map<int, int> idToTemplateIndex;
         idToTemplateIndex.reserve(templateSlots.size());
@@ -323,6 +337,7 @@ bool LayoutConfig::loadFromFile(const std::string& filePath)
 
     if (hasLayerField)
     {
+        // 只要配置声明了 layer，就优先认为 covers 应由几何关系动态推导。
         rebuildDynamicCoversForSlots(_slots, _usePileCenterOrigin, _mainPileCount);
         GAME_LOG_INFO("Dynamic covers rebuilt for layout=%s slots=%d mainPileCount=%d",
                       _name.c_str(), static_cast<int>(_slots.size()), _mainPileCount);
@@ -337,6 +352,7 @@ bool LayoutConfig::loadFromFile(const std::string& filePath)
 
 std::vector<LayoutConfig::LayoutInfo> LayoutConfig::getAvailableLayouts()
 {
+    // 汇总配置文件声明与目录扫描到的布局列表，去重后按名称排序。
     std::vector<LayoutInfo> layouts;
     auto* fileUtils = cocos2d::FileUtils::getInstance();
     std::vector<std::string> candidateFiles;
@@ -347,6 +363,8 @@ std::vector<LayoutConfig::LayoutInfo> LayoutConfig::getAvailableLayouts()
         {
             return;
         }
+
+        // 用 set 去重，兼容配置列表和目录扫描同时指向同一布局文件的情况。
         if (seenFiles.insert(filePath).second)
         {
             candidateFiles.push_back(filePath);

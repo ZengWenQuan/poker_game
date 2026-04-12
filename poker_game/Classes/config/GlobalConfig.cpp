@@ -3,11 +3,13 @@
 
 namespace
 {
+// 单例实例指针。
 GlobalConfig* s_instance = nullptr;
 }
 
 GlobalConfig::GlobalConfig()
 {
+    // 配置按职责拆成三类文件，构造时一次性读入内存。
     JsonConfig game("config/game_config.json");
     JsonConfig theme("config/theme.json");
     JsonConfig strings("config/strings.json");
@@ -32,6 +34,7 @@ GlobalConfig::GlobalConfig()
         auto* v = game.lookup("interaction.recycleHitRect");
         if (v && v->getType() == cocos2d::Value::Type::VECTOR && v->asValueVector().size() >= 4)
         {
+            // 回收按钮命中区允许比文字本身更大，提升交互容错。
             const auto& r = v->asValueVector();
             _recycleHitRect = cocos2d::Rect(r[0].asFloat(), r[1].asFloat(), r[2].asFloat(), r[3].asFloat());
         }
@@ -85,6 +88,7 @@ GlobalConfig::GlobalConfig()
                 if (arr.size() >= 3)
                 {
                     int a = (arr.size() >= 4) ? arr[3].asInt() : 255;
+                    // 颜色统一用 RGBA 数组表达。
                     _colors[pair.first] = cocos2d::Color4B(arr[0].asInt(), arr[1].asInt(), arr[2].asInt(), a);
                 }
             }
@@ -116,6 +120,7 @@ GlobalConfig::GlobalConfig()
 
 GlobalConfig& GlobalConfig::getInstance()
 {
+    // 全局配置只构造一次，后续按单例复用。
     if (!s_instance)
         s_instance = new GlobalConfig();
     return *s_instance;
@@ -123,33 +128,39 @@ GlobalConfig& GlobalConfig::getInstance()
 
 float GlobalConfig::getFontSize(const std::string& key) const
 {
+    // `key` 用来索引字体尺寸配置；缺失时回退到默认字号。
     auto it = _fontSizes.find(key);
     return it != _fontSizes.end() ? it->second : 28.0f;
 }
 
 cocos2d::Color4B GlobalConfig::getColor4B(const std::string& key) const
 {
+    // `key` 用来索引颜色配置；缺失时回退为白色。
     auto it = _colors.find(key);
     return it != _colors.end() ? it->second : cocos2d::Color4B::WHITE;
 }
 
 cocos2d::Color3B GlobalConfig::getColor3B(const std::string& key) const
 {
+    // `key` 用来索引颜色配置；这里只保留 RGB 分量。
     auto it = _colors.find(key);
     return it != _colors.end() ? cocos2d::Color3B(it->second.r, it->second.g, it->second.b) : cocos2d::Color3B::WHITE;
 }
 
 const std::string& GlobalConfig::getImage(const std::string& key) const
 {
+    // `key` 表示图片资源名称，找不到时返回 key 本身，便于上层继续排查。
     auto it = _images.find(key);
     return it != _images.end() ? it->second : key;
 }
 
 std::string GlobalConfig::getImageFormatted(const std::string& key, const std::string& color, const std::string& rank) const
 {
+    // `key` 表示图片模板名，`color` 和 `rank` 分别替换花色与点数占位符。
     auto it = _images.find(key);
     if (it == _images.end()) return key;
     std::string result = it->second;
+    // 支持把 {color} / {rank} 占位符替换成实际资源片段。
     auto replaceAll = [](std::string& s, const std::string& from, const std::string& to) {
         size_t pos = 0;
         while ((pos = s.find(from, pos)) != std::string::npos)
@@ -165,6 +176,7 @@ std::string GlobalConfig::getImageFormatted(const std::string& key, const std::s
 
 const std::string& GlobalConfig::get(const std::string& key) const
 {
+    // `key` 表示文案标识，找不到时直接返回 key，避免界面出现空串。
     auto it = _strings.find(key);
     return it != _strings.end() ? it->second : key;
 }

@@ -7,12 +7,15 @@
 
 namespace
 {
+// 把 rapidjson 节点递归转换成 cocos2d::Value。
+// `value` 是当前待转换的 JSON 节点。
 cocos2d::Value convertJsonValue(const rapidjson::Value& value)
 {
     using cocos2d::Value;
     using cocos2d::ValueMap;
     using cocos2d::ValueVector;
 
+    // 统一转成 cocos2d::Value 树，后续配置层就不再依赖 rapidjson API。
     if (value.IsObject())
     {
         ValueMap mapValue;
@@ -41,6 +44,8 @@ cocos2d::Value convertJsonValue(const rapidjson::Value& value)
 
 JsonConfig::JsonConfig(const std::string& filePath)
 {
+    // `filePath` 表示资源目录下的 JSON 文件相对路径。
+    // 作为最底层配置入口，遇到文件缺失或格式非法时直接记录日志。
     const std::string fullPath = cocos2d::FileUtils::getInstance()->fullPathForFilename(filePath);
     if (fullPath.empty())
     {
@@ -71,6 +76,8 @@ JsonConfig::JsonConfig(const std::string& filePath)
 
 const cocos2d::Value* JsonConfig::lookup(const std::string& path) const
 {
+    // `path` 使用点分层级路径，例如 "window.title"。
+    // 按 '.' 逐层向下解析，适合读取结构化配置。
     const cocos2d::ValueMap* cur = &data;
     const cocos2d::Value* val = nullptr;
     size_t start = 0;
@@ -91,24 +98,28 @@ const cocos2d::Value* JsonConfig::lookup(const std::string& path) const
 
 std::string JsonConfig::getString(const std::string& path, const std::string& fb) const
 {
+    // `path` 是目标配置路径，`fb` 是默认字符串。
     auto* v = lookup(path);
     return v ? v->asString() : fb;
 }
 
 int JsonConfig::getInt(const std::string& path, int fb) const
 {
+    // `path` 是目标配置路径，`fb` 是默认整数值。
     auto* v = lookup(path);
     return v ? v->asInt() : fb;
 }
 
 float JsonConfig::getFloat(const std::string& path, float fb) const
 {
+    // `path` 是目标配置路径，`fb` 是默认浮点值。
     auto* v = lookup(path);
     return v ? v->asFloat() : fb;
 }
 
 cocos2d::Vec2 JsonConfig::getVec2(const std::string& path, cocos2d::Vec2 fb) const
 {
+    // `path` 是目标配置路径，`fb` 是默认二维坐标。
     auto* v = lookup(path);
     if (!v || v->getType() != cocos2d::Value::Type::VECTOR) return fb;
     const auto& arr = v->asValueVector();
@@ -118,6 +129,7 @@ cocos2d::Vec2 JsonConfig::getVec2(const std::string& path, cocos2d::Vec2 fb) con
 
 std::vector<std::string> JsonConfig::getStringArray(const std::string& path) const
 {
+    // `path` 是目标配置路径，要求该节点是字符串数组。
     std::vector<std::string> result;
     auto* v = lookup(path);
     if (!v || v->getType() != cocos2d::Value::Type::VECTOR) return result;

@@ -10,6 +10,7 @@ Scene* GameScene::createScene()
     return GameScene::create();
 }
 
+// 释放控制器、Presenter、编辑器等堆对象。
 GameScene::~GameScene()
 {
     delete _gameplayPresenter;
@@ -17,6 +18,7 @@ GameScene::~GameScene()
     delete _controller;
 }
 
+// 场景初始化：搭建 UI、加载配置、创建控制器与 Presenter。
 bool GameScene::init()
 {
     if (!Scene::init())
@@ -27,6 +29,7 @@ bool GameScene::init()
 
     GAME_LOG_INFO("GameScene init started");
 
+    // 初始化顺序很重要：先把静态 UI 搭起来，再初始化控制器和 presenter，最后开局。
     buildBackground();
     buildUI();
     buildLevelSelector();

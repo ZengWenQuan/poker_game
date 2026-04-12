@@ -6,12 +6,14 @@
 
 USING_NS_CC;
 
+// 创建并铺满场景的背景图。
 void GameScene::buildBackground()
 {
     auto& cfg = GlobalConfig::getInstance();
     const auto visibleSize = Director::getInstance()->getVisibleSize();
     const auto origin = Director::getInstance()->getVisibleOrigin();
 
+    // 背景图始终铺满当前可视区域，不依赖设计分辨率。
     auto* background = Sprite::create(cfg.getImage("background"));
     if (background == nullptr) return;
 
@@ -27,6 +29,7 @@ void GameScene::buildBackground()
     addChild(background);
 }
 
+// 搭建顶部区域、主牌区、撤销按钮与状态文本。
 void GameScene::buildUI()
 {
     auto& cfg = GlobalConfig::getInstance();
@@ -36,6 +39,7 @@ void GameScene::buildUI()
     const auto visibleSize = Director::getInstance()->getVisibleSize();
     const auto origin = Director::getInstance()->getVisibleOrigin();
 
+    // 顶部牌区和主牌区都挂在场景中心，内部再按设计分辨率摆放自己的内容。
     _topArea = TopAreaView::create();
     _topArea->setPosition(Vec2(origin.x + visibleSize.width * 0.5f,
                                origin.y + visibleSize.height * 0.5f));
@@ -65,6 +69,7 @@ void GameScene::buildUI()
     addChild(_statusLabel, 5);
 }
 
+// 更新状态栏文案和可选颜色。
 void GameScene::setStatusText(const std::string& text, const Color4B* color)
 {
     if (_statusLabel == nullptr) return;
@@ -73,4 +78,5 @@ void GameScene::setStatusText(const std::string& text, const Color4B* color)
     {
         _statusLabel->setTextColor(*color);
     }
+    // 未传颜色时保持当前颜色不变，便于胜利等特殊状态延续显示风格。
 }

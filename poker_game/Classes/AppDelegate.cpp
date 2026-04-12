@@ -36,6 +36,7 @@ AppDelegate::AppDelegate()
 
 AppDelegate::~AppDelegate() 
 {
+    // 程序退出前显式关闭日志，确保最后一批内容落盘。
     GameLogger::getInstance().shutdown();
 }
 
@@ -43,7 +44,7 @@ AppDelegate::~AppDelegate()
 // it will affect all platforms
 void AppDelegate::initGLContextAttrs()
 {
-    // set OpenGL context attributes: red,green,blue,alpha,depth,stencil,multisamplesCount
+    // 统一设置 OpenGL 上下文属性。
     GLContextAttrs glContextAttrs = {8, 8, 8, 8, 24, 8, 0};
 
     GLView::setGLContextAttrs(glContextAttrs);
@@ -53,7 +54,7 @@ void AppDelegate::initGLContextAttrs()
 // don't modify or remove this function
 static int register_all_packages()
 {
-    return 0; //flag for packages manager
+    return 0; // 当前项目未使用额外 package manager 扩展包
 }
 
 bool AppDelegate::applicationDidFinishLaunching() {
@@ -67,12 +68,12 @@ bool AppDelegate::applicationDidFinishLaunching() {
                   gameConfig.getDesignHeight(),
                   gameConfig.getWindowScale());
 
-    // initialize director
+    // 初始化 director 和窗口。
     auto director = Director::getInstance();
     auto glview = director->getOpenGLView();
     if(!glview) {
 #if (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32) || (CC_TARGET_PLATFORM == CC_PLATFORM_MAC) || (CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
-        // 桌面端：用设计分辨率的配置缩放作为窗口大小，保持宽高比
+        // 桌面端直接按设计分辨率和缩放比创建窗口，便于开发时固定观感。
         float windowScale = gameConfig.getWindowScale();
         glview = GLViewImpl::createWithRect(gameConfig.getWindowTitle(),
             cocos2d::Rect(0, 0, gameConfig.getDesignWidth() * windowScale,
@@ -84,13 +85,14 @@ bool AppDelegate::applicationDidFinishLaunching() {
         GAME_LOG_INFO("Created GLView for desktop window");
     }
 
+    // writablePath 下的 layouts/ 用于保存用户自定义布局，并加入资源搜索路径。
     auto* fileUtils = FileUtils::getInstance();
     const std::string customLayoutRoot = fileUtils->getWritablePath();
     fileUtils->createDirectory(customLayoutRoot + "layouts");
     fileUtils->addSearchPath(customLayoutRoot, true);
     GAME_LOG_INFO("Writable search path added: %s", customLayoutRoot.c_str());
 
-    // 读取真实图片尺寸后，按背景宽度比例刷新牌尺寸
+    // 读取真实图片尺寸后，按背景宽度比例刷新牌尺寸。
     PokerCardView::refreshCardMetrics();
     GAME_LOG_INFO("Card metrics refreshed. source=%.1fx%.1f actual=%.1fx%.1f",
                   PokerCardView::getSourceCardSize().width,
@@ -98,36 +100,32 @@ bool AppDelegate::applicationDidFinishLaunching() {
                   PokerCardView::getCardWidth(),
                   PokerCardView::getCardHeight());
 
-    // turn on display FPS
+    // 开启 FPS 显示，便于开发调试。
     director->setDisplayStats(true);
 
-    // set FPS. the default value is 1.0/60 if you don't call this
+    // 固定渲染间隔。
     director->setAnimationInterval(1.0f / 60);
 
-    // Set the design resolution
-    // SHOW_ALL: 固定宽高比，窗口最大化时等比缩放，不留黑边或拉伸
+    // 设计分辨率固定为配置值；SHOW_ALL 保持宽高比。
     glview->setDesignResolutionSize(gameConfig.getDesignWidth(), gameConfig.getDesignHeight(), ResolutionPolicy::SHOW_ALL);
 
     register_all_packages();
 
-    // create a scene. it's an autorelease object
+    // 创建并运行首个场景。
     auto scene = GameScene::createScene();
     GAME_LOG_INFO("Initial scene created");
 
-    // run
     director->runWithScene(scene);
     GAME_LOG_INFO("Application launch finished");
 
     return true;
 }
 
-// This function will be called when the app is inactive. Note, when receiving a phone call it's invoked.
 void AppDelegate::applicationDidEnterBackground() {
     GAME_LOG_INFO("Application entered background");
     Director::getInstance()->stopAnimation();
 }
 
-// this function will be called when the app is active again
 void AppDelegate::applicationWillEnterForeground() {
     GAME_LOG_INFO("Application entered foreground");
     Director::getInstance()->startAnimation();

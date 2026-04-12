@@ -12,8 +12,10 @@ USING_NS_CC;
 
 namespace
 {
+// 计算两个矩形的交叠面积；用于判断牌是否存在有效覆盖关系。
 float computeOverlapArea(const Rect& lhs, const Rect& rhs)
 {
+    // 编辑器只需要粗略判断两张牌是否发生了真实叠压，矩形相交面积足够用了。
     const float left = std::max(lhs.getMinX(), rhs.getMinX());
     const float right = std::min(lhs.getMaxX(), rhs.getMaxX());
     const float bottom = std::max(lhs.getMinY(), rhs.getMinY());
@@ -52,6 +54,7 @@ bool CustomLayoutEditor::isActive() const
     return _active;
 }
 
+// 进入自定义编辑模式：生成编辑层与托盘牌组。
 void CustomLayoutEditor::enter()
 {
     if (_active) return;
@@ -61,6 +64,7 @@ void CustomLayoutEditor::enter()
     GAME_LOG_INFO("Entered custom layout mode");
 }
 
+// 退出编辑模式：关闭对话框并移除编辑层。
 void CustomLayoutEditor::exit()
 {
     if (!_active) return;
@@ -93,6 +97,7 @@ std::vector<PokerCard> CustomLayoutEditor::buildEditorDeck() const
         CardSuit::Diamond
     };
 
+    // 编辑器固定提供一整副牌，便于自由摆放和辨认层级关系。
     for (CardSuit suit : suits)
     {
         for (int rank = static_cast<int>(CardRank::Ace); rank <= static_cast<int>(CardRank::King); ++rank)
@@ -106,18 +111,21 @@ std::vector<PokerCard> CustomLayoutEditor::buildEditorDeck() const
 
 Rect CustomLayoutEditor::getCustomTrayRect() const
 {
+    // 下方托盘区：未使用的牌停放在这里。
     const auto visibleSize = Director::getInstance()->getVisibleSize();
     return Rect(60.0f, 40.0f, visibleSize.width - 120.0f, visibleSize.height * 0.28f);
 }
 
 Rect CustomLayoutEditor::getCustomMainAreaRect() const
 {
+    // 中上方主编辑区：拖到这里的牌会被视为布局有效内容。
     const auto visibleSize = Director::getInstance()->getVisibleSize();
     return Rect(80.0f, visibleSize.height * 0.22f, visibleSize.width - 160.0f, visibleSize.height * 0.62f);
 }
 
 Vec2 CustomLayoutEditor::getCustomTrayPosition(int index) const
 {
+    // index: 第几张牌（0 起），用于排列托盘网格。
     const Rect trayRect = getCustomTrayRect();
     const int columns = 13;
     const int row = index / columns;
@@ -141,6 +149,7 @@ void CustomLayoutEditor::buildEditorDeckView()
     const auto visibleSize = Director::getInstance()->getVisibleSize();
     const auto origin = Director::getInstance()->getVisibleOrigin();
 
+    // 编辑层本身透明，只通过半透明遮罩把主编辑区和托盘区区分开。
     _editorLayer = LayerColor::create(Color4B(0, 0, 0, 0), visibleSize.width, visibleSize.height);
     _editorLayer->setIgnoreAnchorPointForPosition(false);
     _editorLayer->setAnchorPoint(Vec2::ZERO);
@@ -177,6 +186,7 @@ void CustomLayoutEditor::buildEditorDeckView()
         _editorLayer->addChild(cardView, i + 1);
         _cardViews.push_back(cardView);
 
+        // 每张牌都挂独立触摸监听，支持自由拖放和叠层调整。
         auto* listener = EventListenerTouchOneByOne::create();
         listener->setSwallowTouches(true);
         listener->onTouchBegan = [this, i](Touch* touch, Event* event) {
@@ -238,6 +248,7 @@ void CustomLayoutEditor::clearEditor()
     }
 }
 
+// 把指定牌提升到最前层，避免被其他牌遮挡。
 void CustomLayoutEditor::bringCardToFront(int cardIndex)
 {
     if (cardIndex < 0 || cardIndex >= static_cast<int>(_cardViews.size())) return;
@@ -245,6 +256,7 @@ void CustomLayoutEditor::bringCardToFront(int cardIndex)
     _cardViews[cardIndex]->setLocalZOrder(_zCounter);
 }
 
+// 弹出保存对话框，允许输入布局名称并确认写入。
 void CustomLayoutEditor::showSaveDialog()
 {
     if (!_active) return;
@@ -313,6 +325,7 @@ void CustomLayoutEditor::hideSaveDialog()
 void CustomLayoutEditor::rebuildLayoutMetadata(std::vector<SlotLayout>& slots,
                                                const std::vector<int>& cardIndices) const
 {
+    // 根据牌的摆放位置和 zOrder 反推 layer 与 covers，确保导出的布局符合运行时遮挡规则。
     const float cardWidth = PokerCardView::getCardWidth();
     const float cardHeight = PokerCardView::getCardHeight();
 
@@ -321,6 +334,9 @@ void CustomLayoutEditor::rebuildLayoutMetadata(std::vector<SlotLayout>& slots,
     bounds.reserve(cardIndices.size());
     zOrders.reserve(cardIndices.size());
 
+    // 保存布局前，需要从编辑器中的摆放结果反推出：
+    // 1. 每张牌的层级 layer
+    // 2. 相邻层之间的 covers 关系
     for (int cardIndex : cardIndices)
     {
         const Vec2 pos = _cardViews[cardIndex]->getPosition();
@@ -349,6 +365,7 @@ void CustomLayoutEditor::rebuildLayoutMetadata(std::vector<SlotLayout>& slots,
     {
         order[i] = i;
     }
+    // 先按 zOrder 从上往下求 layer，保证更高层的牌先确定。
     std::sort(order.begin(), order.end(), [&](int lhs, int rhs) {
         return zOrders[lhs] > zOrders[rhs];
     });
@@ -382,6 +399,7 @@ void CustomLayoutEditor::rebuildLayoutMetadata(std::vector<SlotLayout>& slots,
 
 std::string CustomLayoutEditor::sanitizeLayoutFileName(const std::string& rawName)
 {
+    // 保存到本地文件系统前，把不安全字符统一替换成下划线。
     std::string result;
     result.reserve(rawName.size());
     for (unsigned char ch : rawName)
@@ -420,6 +438,7 @@ std::string CustomLayoutEditor::sanitizeLayoutFileName(const std::string& rawNam
 void CustomLayoutEditor::saveLayout(const std::string& layoutName)
 {
     std::vector<int> cardIndices;
+    // 只保存被拖入主编辑区的牌；托盘区里的牌视为未参与布局。
     for (int i = 0; i < static_cast<int>(_cardViews.size()); ++i)
     {
         if (_cardInMainArea[i])
@@ -440,6 +459,8 @@ void CustomLayoutEditor::saveLayout(const std::string& layoutName)
     const float centerX = GlobalConfig::getInstance().getDesignWidth() * 0.5f;
     const float centerY = GlobalConfig::getInstance().getDesignHeight() * 0.5f;
 
+    // 编辑器内部位置是场景坐标，这里转换成以主牌区中心为原点的局部坐标，
+    // 以便和运行时布局解析逻辑保持一致。
     for (int i = 0; i < static_cast<int>(cardIndices.size()); ++i)
     {
         const int cardIndex = cardIndices[i];
@@ -457,6 +478,7 @@ void CustomLayoutEditor::saveLayout(const std::string& layoutName)
 
     rebuildLayoutMetadata(slots, cardIndices);
 
+    // 输出完整布局 JSON，供运行时和布局列表直接复用。
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     writer.StartObject();

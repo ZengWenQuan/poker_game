@@ -6,13 +6,13 @@
 
 enum class UndoActionType
 {
-    Match,
-    DrawCard
+    Match,    // 旧版匹配撤销记录
+    DrawCard  // 旧版抽牌撤销记录
 };
 
 struct UndoAction
 {
-    UndoActionType type;
+    UndoActionType type; // 撤销动作类型
 
     // Match 操作
     PokerCard movedCard;
@@ -22,8 +22,8 @@ struct UndoAction
     // DrawCard 操作
     PokerCard drawnCard;
 
-    std::vector<PokerCard> previousOpenTopCards;
-    bool movedOpenCardToWaste = false;
+    std::vector<PokerCard> previousOpenTopCards; // 操作前顶部明牌窗口
+    bool movedOpenCardToWaste = false;           // 抽牌时是否挤出了旧明牌
 };
 
 #endif

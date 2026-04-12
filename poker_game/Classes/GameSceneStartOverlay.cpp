@@ -4,6 +4,7 @@
 
 USING_NS_CC;
 
+// 搭建开局难度选择弹层（选择顶部明牌数量）。
 void GameScene::buildStartGameOverlay()
 {
     auto& theme = GlobalConfig::getInstance();
@@ -11,6 +12,7 @@ void GameScene::buildStartGameOverlay()
     const auto visibleSize = Director::getInstance()->getVisibleSize();
     const auto origin = Director::getInstance()->getVisibleOrigin();
 
+    // 开局弹层只负责选择顶部明牌窗口大小，相当于难度选择。
     _startGameOverlay = LayerColor::create(Color4B(0, 0, 0, 170), visibleSize.width, visibleSize.height);
     _startGameOverlay->setPosition(origin);
     addChild(_startGameOverlay, 12);
@@ -61,17 +63,21 @@ void GameScene::buildStartGameOverlay()
     updateStartGameDifficultyUI();
 }
 
+// 按当前选定明牌数量重开一局。
 void GameScene::restartGameWithSelectedDifficulty()
 {
+    // 难度本质上就是“顶部明牌窗口数量”。
     _gameState.setVisibleTopCardCount(_selectedVisibleTopCardCount);
     startGame();
     setStatusText(GlobalConfig::getInstance().get("openBaseCards") + " " + std::to_string(_selectedVisibleTopCardCount));
     GAME_LOG_INFO("Restarted game with visibleTopCardCount=%d", _selectedVisibleTopCardCount);
 }
 
+// 刷新难度按钮高亮态。
 void GameScene::updateStartGameDifficultyUI()
 {
     auto& theme = GlobalConfig::getInstance();
+    // 当前选中项通过颜色和轻微放大共同强调。
     auto updateItem = [&](MenuItemLabel* item, bool selected) {
         if (!item) return;
         auto* label = dynamic_cast<Label*>(item->getLabel());

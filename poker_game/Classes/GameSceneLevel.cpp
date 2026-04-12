@@ -5,6 +5,7 @@
 
 USING_NS_CC;
 
+// 构建关卡选择与自定义布局入口 UI。
 void GameScene::buildLevelSelector()
 {
     auto& cfg = GlobalConfig::getInstance();
@@ -14,6 +15,7 @@ void GameScene::buildLevelSelector()
     const auto visibleSize = Director::getInstance()->getVisibleSize();
     const auto origin = Director::getInstance()->getVisibleOrigin();
 
+    // 关卡相关入口都集中在右上区域，避免和主玩法区域混杂。
     refreshAvailableLayouts();
 
     _levelTitleLabel = Label::createWithSystemFont(strings.get("level"), theme.getFont(), theme.getFontSize("levelTitle"));
@@ -56,8 +58,10 @@ void GameScene::buildLevelSelector()
     addChild(_levelMenu, 6);
 }
 
+// 扫描可用布局列表，并尝试保留当前选项。
 void GameScene::refreshAvailableLayouts()
 {
+    // 重新扫描布局时尽量保留当前已选布局，避免保存自定义布局后跳回默认项。
     const std::string currentFile =
         (_currentLayoutIndex >= 0 && _currentLayoutIndex < static_cast<int>(_availableLayouts.size()))
             ? _availableLayouts[_currentLayoutIndex].filePath
@@ -83,6 +87,7 @@ void GameScene::refreshAvailableLayouts()
     }
 }
 
+// 切换到指定布局并重开一局。
 void GameScene::switchToLayout(int layoutIndex)
 {
     if (layoutIndex < 0 || layoutIndex >= static_cast<int>(_availableLayouts.size())) return;
@@ -91,6 +96,7 @@ void GameScene::switchToLayout(int layoutIndex)
     auto& theme = GlobalConfig::getInstance();
     auto& strings = GlobalConfig::getInstance();
 
+    // 切布局时直接重置 GameState，避免旧布局残留关系图和牌局数据。
     _currentLayoutIndex = layoutIndex;
     const std::string& layoutFile = _availableLayouts[layoutIndex].filePath;
     GAME_LOG_INFO("Switching to layout index=%d name=%s file=%s",
@@ -114,17 +120,20 @@ void GameScene::switchToLayout(int layoutIndex)
     updateLevelSelectorUI();
 }
 
+// 依次轮换下一个布局。
 void GameScene::switchToNextLayout()
 {
     if (_availableLayouts.empty()) return;
     switchToLayout((_currentLayoutIndex + 1) % static_cast<int>(_availableLayouts.size()));
 }
 
+// 刷新关卡 UI 文案与颜色状态。
 void GameScene::updateLevelSelectorUI()
 {
     auto& strings = GlobalConfig::getInstance();
     auto& theme = GlobalConfig::getInstance();
 
+    // 统一在这里刷新标题、按钮颜色和自定义布局模式下的可见性。
     if (_levelTitleLabel)
     {
         if (!_availableLayouts.empty() &&

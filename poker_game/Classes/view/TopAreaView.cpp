@@ -4,6 +4,7 @@
 
 USING_NS_CC;
 
+// 创建顶部区域视图。
 TopAreaView* TopAreaView::create()
 {
     auto* view = new (std::nothrow) TopAreaView();
@@ -16,6 +17,7 @@ TopAreaView* TopAreaView::create()
     return nullptr;
 }
 
+// 初始化区域尺寸并构建子控件。
 bool TopAreaView::init()
 {
     if (!Node::init())
@@ -38,6 +40,7 @@ bool TopAreaView::init()
     return true;
 }
 
+// 构建底牌堆节点并绑定触摸。
 void TopAreaView::buildReserveDeck()
 {
     auto& cfg = GlobalConfig::getInstance();
@@ -45,6 +48,7 @@ void TopAreaView::buildReserveDeck()
     Vec2 reservePos = Vec2(_areaWidth * cfg.getReserveStackStartRatio().x,
                            _areaHeight * cfg.getReserveStackStartRatio().y);
 
+    // 底牌堆本体是一个空 Node，具体叠起来的背面牌由 rebuildReserveDeckVisual 动态生成。
     _reserveDeckView = Node::create();
     _reserveDeckView->setPosition(reservePos);
     addChild(_reserveDeckView, 1);
@@ -58,6 +62,7 @@ void TopAreaView::buildReserveDeck()
     rebuildReserveDeckVisual();
 }
 
+// 创建底牌/废牌数量文案。
 void TopAreaView::buildReserveLabel()
 {
     auto& cfg = GlobalConfig::getInstance();
@@ -73,6 +78,7 @@ void TopAreaView::buildReserveLabel()
     addChild(_reserveLabel, 2);
 }
 
+// 创建废牌回收按钮并绑定触摸。
 void TopAreaView::buildRecycleButton()
 {
     auto& cfg = GlobalConfig::getInstance();
@@ -95,16 +101,19 @@ void TopAreaView::buildRecycleButton()
     _eventDispatcher->addEventListenerWithSceneGraphPriority(listener, _recycleButton);
 }
 
+// 底牌触摸命中判定。
 bool TopAreaView::onReserveTouchBegan(cocos2d::Touch* touch, cocos2d::Event* event)
 {
     auto& cfg = GlobalConfig::getInstance();
     int padding = cfg.getReserveHitPadding();
     Vec2 localPos = _reserveDeckView->convertToNodeSpace(touch->getLocation());
+    // 实际命中区比牌面稍大，避免点边缘时体验太差。
     Rect cardRect(-padding, -padding, PokerCardView::getCardWidth() + padding * 2,
                   PokerCardView::getCardHeight() + padding * 2);
     return cardRect.containsPoint(localPos);
 }
 
+// 底牌触摸结束，触发抽牌回调。
 void TopAreaView::onReserveTouchEnded(cocos2d::Touch* touch, cocos2d::Event* event)
 {
     CC_UNUSED_PARAM(touch);
@@ -115,6 +124,7 @@ void TopAreaView::onReserveTouchEnded(cocos2d::Touch* touch, cocos2d::Event* eve
     }
 }
 
+// 回收按钮触摸命中判定。
 bool TopAreaView::onRecycleTouchBegan(cocos2d::Touch* touch, cocos2d::Event* event)
 {
     if (!_recycleButton->isVisible()) return false;
@@ -124,6 +134,7 @@ bool TopAreaView::onRecycleTouchBegan(cocos2d::Touch* touch, cocos2d::Event* eve
     return rect.containsPoint(localPos);
 }
 
+// 回收触摸结束，触发回收回调。
 void TopAreaView::onRecycleTouchEnded(cocos2d::Touch* touch, cocos2d::Event* event)
 {
     CC_UNUSED_PARAM(touch);
@@ -134,6 +145,7 @@ void TopAreaView::onRecycleTouchEnded(cocos2d::Touch* touch, cocos2d::Event* eve
     }
 }
 
+// 重建顶部明牌窗口。
 void TopAreaView::setOpenTopCards(const std::vector<PokerCard>& cards)
 {
     auto& cfg = GlobalConfig::getInstance();
@@ -144,6 +156,7 @@ void TopAreaView::setOpenTopCards(const std::vector<PokerCard>& cards)
     }
     _openTopCardViews.clear();
 
+    // 顶部明牌从中心向右展开，并带少量叠压，强调最近一张在最右侧。
     const Vec2 centerPos = Vec2(_areaWidth * cfg.getTopCardPositionRatio().x,
                                 _areaHeight * cfg.getTopCardPositionRatio().y);
     const float spacingX = PokerCardView::getCardWidth() * 1.5f;
@@ -160,6 +173,7 @@ void TopAreaView::setOpenTopCards(const std::vector<PokerCard>& cards)
     }
 }
 
+// 获取顶部最右侧明牌的世界坐标（无牌时返回默认位置）。
 cocos2d::Vec2 TopAreaView::getTopCardWorldPosition() const
 {
     auto& cfg = GlobalConfig::getInstance();
@@ -173,6 +187,7 @@ cocos2d::Vec2 TopAreaView::getTopCardWorldPosition() const
     return convertToWorldSpace(defaultPos);
 }
 
+// 更新底牌堆数量并刷新显示。
 void TopAreaView::setReserveCount(int count)
 {
     _reserveCount = count;
@@ -180,26 +195,31 @@ void TopAreaView::setReserveCount(int count)
     updateRecycleButton();
 }
 
+// 更新废牌堆数量并刷新回收按钮。
 void TopAreaView::setWastePileCount(int count)
 {
     _wastePileCount = count;
     updateRecycleButton();
 }
 
+// 设置抽牌回调。
 void TopAreaView::setDrawCallback(const DrawCallback& cb)
 {
     _onDraw = cb;
 }
 
+// 设置回收回调。
 void TopAreaView::setRecycleCallback(const RecycleCallback& cb)
 {
     _onRecycle = cb;
 }
 
+// 明牌窗口动画刷新。
 void TopAreaView::animateOpenTopCards(const std::vector<PokerCard>& cards)
 {
     auto& cfg = GlobalConfig::getInstance();
     setOpenTopCards(cards);
+    // 抽牌和撤销抽牌时只做轻量缩放反馈，不引入额外飞行动画。
     for (auto* cardView : _openTopCardViews)
     {
         cardView->setScale(0.8f);
@@ -207,6 +227,7 @@ void TopAreaView::animateOpenTopCards(const std::vector<PokerCard>& cards)
     }
 }
 
+// 获取顶部牌区域的世界包围盒，供拖拽命中使用。
 cocos2d::Rect TopAreaView::getTopCardWorldRect() const
 {
     if (_openTopCardViews.empty())
@@ -236,9 +257,11 @@ cocos2d::Rect TopAreaView::getTopCardWorldRect() const
     return unionRect;
 }
 
+// 刷新底牌/废牌文案与底牌堆可见性。
 void TopAreaView::updateReserveVisual()
 {
     auto& strings = GlobalConfig::getInstance();
+    // reserve / waste 合并显示在一条文案里，减少顶部区域元素数量。
     std::string wasteInfo = _wastePileCount > 0 ? (strings.get("waste") + std::to_string(_wastePileCount)) : "";
     _reserveLabel->setString(strings.get("reserve") + std::to_string(_reserveCount) + wasteInfo);
     _reserveDeckView->setVisible(_reserveCount > 0);
@@ -246,11 +269,13 @@ void TopAreaView::updateReserveVisual()
     rebuildReserveDeckVisual();
 }
 
+// 控制回收按钮显隐：仅当底牌耗尽且有废牌时显示。
 void TopAreaView::updateRecycleButton()
 {
     _recycleButton->setVisible(_reserveCount == 0 && _wastePileCount > 0);
 }
 
+// 重新生成叠放的底牌背面视觉。
 void TopAreaView::rebuildReserveDeckVisual()
 {
     _reserveDeckView->removeAllChildren();
@@ -259,6 +284,7 @@ void TopAreaView::rebuildReserveDeckVisual()
     auto& cfg = GlobalConfig::getInstance();
     const float stepX = PokerCardView::getCardWidth() * cfg.getReserveStackStepXRatio();
 
+    // 用多张背面牌叠出“还剩多少底牌”的视觉暗示。
     for (int i = 0; i < _reserveCount; ++i)
     {
         auto* cardBack = PokerCardView::create(PokerCard(CardSuit::Spade, CardRank::Ace), false);

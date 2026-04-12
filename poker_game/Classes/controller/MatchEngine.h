@@ -7,7 +7,11 @@
 class MatchEngine
 {
 public:
+    // 判断两张牌是否满足当前玩法规则。
+    // 目前规则很简单：点数差 1 即可，不处理 A/K 环绕。
     static bool canMatch(const PokerCard& cardA, const PokerCard& cardB);
+
+    // 给定顶部牌，返回理论上可以匹配的上下相邻点数；不存在则返回 -1。
     static std::pair<int, int> getMatchingRanks(const PokerCard& topCard);
 };
 

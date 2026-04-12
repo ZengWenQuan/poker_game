@@ -18,6 +18,7 @@ constexpr float kCornerInsetXRatio = 0.10f;
 constexpr float kCornerInsetYRatio = 0.06f;
 }
 
+// 创建单张牌视图。
 PokerCardView* PokerCardView::create(const PokerCard& card, bool faceUp)
 {
     auto* view = new (std::nothrow) PokerCardView();
@@ -30,6 +31,7 @@ PokerCardView* PokerCardView::create(const PokerCard& card, bool faceUp)
     return nullptr;
 }
 
+// 初始化牌面节点并设置初始朝向。
 bool PokerCardView::initWithCard(const PokerCard& card, bool faceUp)
 {
     if (!Node::init())
@@ -54,11 +56,13 @@ bool PokerCardView::initWithCard(const PokerCard& card, bool faceUp)
     return true;
 }
 
+// 获取当前展示的牌。
 const PokerCard& PokerCardView::getCard() const
 {
     return _card;
 }
 
+// 探测素材原始尺寸，失败时用配置兜底。
 Size PokerCardView::getSourceCardSize()
 {
     refreshCardMetrics();
@@ -67,10 +71,12 @@ Size PokerCardView::getSourceCardSize()
         return s_detectedCardSourceSize;
     }
 
+    // 如果资源尺寸探测失败，则退回配置中的兜底值。
     auto& cfg = GlobalConfig::getInstance();
     return Size(cfg.getCardSourceWidth(), cfg.getCardSourceHeight());
 }
 
+// 获取运行时展示尺寸。
 Size PokerCardView::getCardSize()
 {
     const Size sourceSize = getSourceCardSize();
@@ -87,10 +93,12 @@ float PokerCardView::getCardHeight()
     return getCardSize().height;
 }
 
+// 根据素材尺寸与背景宽度比例重新计算牌尺寸。
 void PokerCardView::refreshCardMetrics()
 {
     auto& cfg = GlobalConfig::getInstance();
 
+    // 优先根据真实素材尺寸和背景尺寸推导缩放比例，减少硬编码尺寸。
     const Size detectedCardSize = detectTextureSize(cfg.getImage("cardFace"));
     if (detectedCardSize.width > 0.0f && detectedCardSize.height > 0.0f)
     {
@@ -115,6 +123,7 @@ void PokerCardView::refreshCardMetrics()
     }
 }
 
+// 从纹理缓存探测图片尺寸。
 Size PokerCardView::detectTextureSize(const std::string& path)
 {
     auto* cache = Director::getInstance()->getTextureCache();
@@ -132,6 +141,7 @@ Size PokerCardView::detectTextureSize(const std::string& path)
     return texture->getContentSize();
 }
 
+// 设置正反面可见性。
 void PokerCardView::setFaceUp(bool faceUp)
 {
     _faceUp = faceUp;
@@ -144,6 +154,7 @@ bool PokerCardView::isFaceUp() const
     return _faceUp;
 }
 
+// 播放翻面动画，翻到正面。
 void PokerCardView::flipToFaceUp(float duration)
 {
     if (_faceUp) return;
@@ -151,6 +162,7 @@ void PokerCardView::flipToFaceUp(float duration)
     auto& cfg = GlobalConfig::getInstance();
     float dur = (duration < 0.0f) ? cfg.getFlipDuration() : duration;
 
+    // 用 X 轴收缩到 0 再展开，模拟最轻量的翻牌效果。
     auto* shrink = ScaleTo::create(dur * 0.5f, 0.0f, getScaleY());
     auto* flip = CallFunc::create([this]() {
         setFaceUp(true);
@@ -160,6 +172,7 @@ void PokerCardView::flipToFaceUp(float duration)
     runAction(seq);
 }
 
+// 切换高亮外观。
 void PokerCardView::setHighlight(bool highlight)
 {
     auto& theme = GlobalConfig::getInstance();
@@ -173,18 +186,17 @@ static void fitSpriteToSize(cocos2d::Sprite* sprite, const cocos2d::Size& target
     const Size& contentSize = sprite->getContentSize();
     if (contentSize.width <= 0.0f || contentSize.height <= 0.0f) return;
 
+    // 保持等比缩放，避免数字和花色资源被拉伸。
     float scaleX = targetSize.width / contentSize.width;
     float scaleY = targetSize.height / contentSize.height;
     float scale = std::min(scaleX, scaleY);
     sprite->setScale(scale);
 }
 
+// 构建正面节点，包含背景、花色与点数字体。
 void PokerCardView::buildCardFace()
 {
     auto& cfg = GlobalConfig::getInstance();
-    auto& theme = GlobalConfig::getInstance();
-    const std::string& font = theme.getFont();
-
     const float cw = getCardWidth();
     const float ch = getCardHeight();
 
@@ -212,7 +224,7 @@ void PokerCardView::buildCardFace()
     const float insetX = cw * kCornerInsetXRatio;
     const float insetY = ch * kCornerInsetYRatio;
 
-    // --- 左上角：花色 ---
+    // 当前牌面资源布局固定为：左上花色、右上小数字、中心大数字。
     const float suitTargetW = cw * kSuitTargetWidthRatio;
     {
         auto* suitSprite = Sprite::create(_card.suitTexturePath());
@@ -252,6 +264,7 @@ void PokerCardView::buildCardFace()
     }
 }
 
+// 构建背面节点。
 void PokerCardView::buildCardBack()
 {
     auto& cfg = GlobalConfig::getInstance();
