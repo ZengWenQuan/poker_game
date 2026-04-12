@@ -1,0 +1,33 @@
+{
+    "font": "Arial",
+    "fontSize": {
+        "undo": 36,
+        "status": 28,
+        "levelTitle": 32,
+        "levelBtn": 26,
+        "recycle": 32,
+        "reserveLabel": 28
+    },
+    "colors": {
+        "statusText": [255, 255, 200, 255],
+        "goldHighlight": [255, 220, 100, 255],
+        "winGold": [255, 215, 0, 255],
+        "cardHighlight": [180, 255, 180],
+        "cardGreyed": [160, 160, 160],
+        "redSuit": [190, 40, 40, 255]
+    },
+    "images": {
+        "background": "res/background.png",
+        "bgFallbackColor": [30, 110, 60],
+        "cardBack": "res/card_back.png",
+        "cardBackFallbackColor": [80, 120, 200],
+        "cardFace": "res/card_general.png",
+        "resourceDir": "res",
+        "suitSpade": "res/suits/spade.png",
+        "suitHeart": "res/suits/heart.png",
+        "suitClub": "res/suits/club.png",
+        "suitDiamond": "res/suits/diamond.png",
+        "bigRankFormat": "res/number/big_{color}_{rank}.png",
+        "smallRankFormat": "res/number/small_{color}_{rank}.png"
+    }
+}

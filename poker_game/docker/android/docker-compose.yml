@@ -1,0 +1,14 @@
+version: "3.3"
+
+services:
+  android-apk-builder:
+    build:
+      context: ../../..
+      dockerfile: poker_game/docker/android/Dockerfile
+    image: poker-game-android-builder
+    working_dir: /workspace
+    volumes:
+      - ../../..:/workspace
+    environment:
+      PROJECT_ROOT: /workspace/poker_game
+      ANDROID_PROJECT_DIR: /workspace/poker_game/proj.android

@@ -1,0 +1,58 @@
+{
+    "window": {
+        "title": "poker_game",
+        "designWidth": 1920,
+        "designHeight": 1080,
+        "scale": 0.45
+    },
+    "card": {
+        "widthRatioToBackground": 0.05
+    },
+    "theme": {
+        "background": "res/background.png",
+        "bgColor": [30, 110, 60],
+        "cardBack": "res/card_back.png",
+        "cardBackFallbackColor": [80, 120, 200],
+        "cardFace": "res/card_general.png",
+        "resourceDir": "res"
+    },
+    "interaction": {
+        "doubleClickIntervalMs": 400,
+        "dragThresholdPx": 10,
+        "dropAreaPaddingRatio": 0.5,
+        "reserveHitPadding": 20,
+        "recycleHitRect": [-40, -20, 240, 60]
+    },
+    "animation": {
+        "matchFlyDuration": 0.3,
+        "flipDuration": 0.2,
+        "bounceBackDuration": 0.25,
+        "drawDelayDuration": 0.3,
+        "undoFlyDuration": 0.3,
+        "topCardScaleUpDuration": 0.2
+    },
+    "ui": {
+        "undoPosition": [120, 60],
+        "statusPositionRatio": [0.104, 0.954],
+        "levelTitlePositionRatio": [0.917, 0.963],
+        "levelBtnStartRatio": [0.833, 0.917],
+        "levelBtnWidth": 110,
+        "reservePositionRatio": [0.46, 0.171],
+        "reserveStackStartRatio": [0.46, 0.171],
+        "reserveStackStepXRatio": 0,
+        "reserveLabelPositionRatio": [0.46, 0.037],
+        "recyclePositionRatio": [0.46, -0.037],
+        "topCardPositionRatio": [0.58, 0.171],
+        "cardOverlapY": 9,
+        "reserveFanCards": 3,
+        "reserveFanOffsetXRatio": 0.15,
+        "reserveFanOffsetYRatio": 0.04
+    },
+    "layouts": [
+        "config/layouts/tripeaks.json",
+        "config/layouts/fan.json",
+        "config/layouts/diamond.json",
+        "config/layouts/spiral.json"
+    ],
+    "defaultLayoutIndex": 0
+}

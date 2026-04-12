@@ -1,0 +1,21 @@
+{
+    "name": "Fan",
+    "mainPileCount": 3,
+    "totalSlots": 10,
+    "slots": [
+        { "id": 0, "x": 0,    "y": 330, "layer": 0, "rotation":   0 },
+
+        { "id": 1, "x": -60,  "y": 250, "layer": 1, "rotation": -10 },
+        { "id": 2, "x": 60,   "y": 250, "layer": 1, "rotation":  10 },
+
+        { "id": 3, "x": -120, "y": 170, "layer": 2, "rotation": -18 },
+        { "id": 4, "x": 0,    "y": 170, "layer": 2, "rotation":   0 },
+        { "id": 5, "x": 120,  "y": 170, "layer": 2, "rotation":  18 },
+
+        { "id": 6, "x": -140, "y": 85,  "layer": 3, "rotation": -12 },
+        { "id": 7, "x": 140,  "y": 85,  "layer": 3, "rotation":  12 },
+
+        { "id": 8, "x": -150, "y": 0,   "layer": 4, "rotation":  -6 },
+        { "id": 9, "x": 150,  "y": 0,   "layer": 4, "rotation":   6 }
+    ]
+}

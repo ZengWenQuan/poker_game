@@ -1,0 +1,142 @@
+{
+    "name": "Diamond",
+    "mainPileCount": 2,
+    "totalSlots": 15,
+    "slots": [
+        {
+            "id": 0,
+            "pileIndex": 0,
+            "x": 0,
+            "y": 380,
+            "layer": 0,
+            "rotation": 0,
+            "covers": []
+        },
+        {
+            "id": 1,
+            "pileIndex": 0,
+            "x": -120,
+            "y": 280,
+            "layer": 1,
+            "rotation": -18,
+            "covers": []
+        },
+        {
+            "id": 2,
+            "pileIndex": 0,
+            "x": 120,
+            "y": 280,
+            "layer": 1,
+            "rotation": 18,
+            "covers": []
+        },
+        {
+            "id": 3,
+            "pileIndex": 0,
+            "x": -240,
+            "y": 180,
+            "layer": 2,
+            "rotation": -30,
+            "covers": []
+        },
+        {
+            "id": 4,
+            "pileIndex": 0,
+            "x": 0,
+            "y": 180,
+            "layer": 2,
+            "rotation": 0,
+            "covers": []
+        },
+        {
+            "id": 5,
+            "pileIndex": 0,
+            "x": 240,
+            "y": 180,
+            "layer": 2,
+            "rotation": 30,
+            "covers": []
+        },
+        {
+            "id": 6,
+            "pileIndex": 0,
+            "x": -340,
+            "y": 80,
+            "layer": 3,
+            "rotation": -35,
+            "covers": []
+        },
+        {
+            "id": 7,
+            "pileIndex": 0,
+            "x": -140,
+            "y": 80,
+            "layer": 3,
+            "rotation": -12,
+            "covers": []
+        },
+        {
+            "id": 8,
+            "pileIndex": 0,
+            "x": 140,
+            "y": 80,
+            "layer": 3,
+            "rotation": 12,
+            "covers": []
+        },
+        {
+            "id": 9,
+            "pileIndex": 0,
+            "x": 340,
+            "y": 80,
+            "layer": 3,
+            "rotation": 35,
+            "covers": []
+        },
+        {
+            "id": 10,
+            "pileIndex": 0,
+            "x": -200,
+            "y": -20,
+            "layer": 4,
+            "rotation": -15,
+            "covers": []
+        },
+        {
+            "id": 11,
+            "pileIndex": 0,
+            "x": 0,
+            "y": -20,
+            "layer": 4,
+            "rotation": 0,
+            "covers": []
+        },
+        {
+            "id": 12,
+            "pileIndex": 0,
+            "x": 200,
+            "y": -20,
+            "layer": 4,
+            "rotation": 15,
+            "covers": []
+        },
+        {
+            "id": 13,
+            "pileIndex": 0,
+            "x": -80,
+            "y": -120,
+            "layer": 5,
+            "rotation": -8,
+            "covers": []
+        },
+        {
+            "id": 14,
+            "pileIndex": 0,
+            "x": 80,
+            "y": -120,
+            "layer": 5,
+            "rotation": 8,
+            "covers": []
+        }
+    ]
+}

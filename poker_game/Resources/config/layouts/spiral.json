@@ -1,0 +1,196 @@
+{
+    "name": "Spiral",
+    "mainPileCount": 2,
+    "totalSlots": 21,
+    "slots": [
+        {
+            "id": 0,
+            "pileIndex": 0,
+            "x": 0,
+            "y": 360,
+            "layer": 0,
+            "rotation": 0,
+            "covers": []
+        },
+        {
+            "id": 1,
+            "pileIndex": 0,
+            "x": 140,
+            "y": 310,
+            "layer": 1,
+            "rotation": 20,
+            "covers": []
+        },
+        {
+            "id": 2,
+            "pileIndex": 0,
+            "x": 240,
+            "y": 210,
+            "layer": 2,
+            "rotation": 45,
+            "covers": []
+        },
+        {
+            "id": 3,
+            "pileIndex": 0,
+            "x": 260,
+            "y": 70,
+            "layer": 3,
+            "rotation": 70,
+            "covers": []
+        },
+        {
+            "id": 4,
+            "pileIndex": 0,
+            "x": 180,
+            "y": -50,
+            "layer": 4,
+            "rotation": 95,
+            "covers": []
+        },
+        {
+            "id": 5,
+            "pileIndex": 0,
+            "x": 40,
+            "y": -100,
+            "layer": 5,
+            "rotation": 120,
+            "covers": []
+        },
+        {
+            "id": 6,
+            "pileIndex": 0,
+            "x": -110,
+            "y": -70,
+            "layer": 6,
+            "rotation": 150,
+            "covers": []
+        },
+        {
+            "id": 7,
+            "pileIndex": 0,
+            "x": -210,
+            "y": 30,
+            "layer": 7,
+            "rotation": 175,
+            "covers": []
+        },
+        {
+            "id": 8,
+            "pileIndex": 0,
+            "x": -220,
+            "y": 160,
+            "layer": 8,
+            "rotation": 195,
+            "covers": []
+        },
+        {
+            "id": 9,
+            "pileIndex": 0,
+            "x": -140,
+            "y": 260,
+            "layer": 9,
+            "rotation": 215,
+            "covers": []
+        },
+        {
+            "id": 10,
+            "pileIndex": 0,
+            "x": -10,
+            "y": 290,
+            "layer": 10,
+            "rotation": 240,
+            "covers": []
+        },
+        {
+            "id": 11,
+            "pileIndex": 0,
+            "x": 100,
+            "y": 230,
+            "layer": 11,
+            "rotation": 260,
+            "covers": []
+        },
+        {
+            "id": 12,
+            "pileIndex": 0,
+            "x": 140,
+            "y": 120,
+            "layer": 12,
+            "rotation": 280,
+            "covers": []
+        },
+        {
+            "id": 13,
+            "pileIndex": 0,
+            "x": 90,
+            "y": 20,
+            "layer": 13,
+            "rotation": 300,
+            "covers": []
+        },
+        {
+            "id": 14,
+            "pileIndex": 0,
+            "x": 0,
+            "y": -20,
+            "layer": 14,
+            "rotation": 320,
+            "covers": []
+        },
+        {
+            "id": 15,
+            "pileIndex": 0,
+            "x": -90,
+            "y": 20,
+            "layer": 15,
+            "rotation": 340,
+            "covers": []
+        },
+        {
+            "id": 16,
+            "pileIndex": 0,
+            "x": -120,
+            "y": 110,
+            "layer": 16,
+            "rotation": 5,
+            "covers": []
+        },
+        {
+            "id": 17,
+            "pileIndex": 0,
+            "x": -70,
+            "y": 190,
+            "layer": 17,
+            "rotation": 25,
+            "covers": []
+        },
+        {
+            "id": 18,
+            "pileIndex": 0,
+            "x": 0,
+            "y": 210,
+            "layer": 18,
+            "rotation": 45,
+            "covers": []
+        },
+        {
+            "id": 19,
+            "pileIndex": 0,
+            "x": 60,
+            "y": 160,
+            "layer": 19,
+            "rotation": 65,
+            "covers": []
+        },
+        {
+            "id": 20,
+            "pileIndex": 0,
+            "x": 60,
+            "y": 90,
+            "layer": 20,
+            "rotation": 85,
+            "covers": []
+        }
+    ]
+}

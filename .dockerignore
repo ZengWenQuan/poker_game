@@ -1,0 +1,15 @@
+.git
+.gitignore
+.DS_Store
+*.log
+
+build
+cmake-build-*
+dist
+tmp
+temp
+
+library
+local
+node_modules
+
