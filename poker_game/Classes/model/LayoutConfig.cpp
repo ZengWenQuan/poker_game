@@ -375,10 +375,10 @@ std::vector<LayoutConfig::LayoutInfo> LayoutConfig::getAvailableLayouts()
         return slashPos == std::string::npos ? filePath : filePath.substr(slashPos + 1);
     };
 
+    // Prefer writable dir layouts (short relative path "layouts/name.json")
+    // over built-in ones ("config/layouts/name.json") with the same key.
     auto shouldPrefer = [](const std::string& lhs, const std::string& rhs) {
-        const bool lhsWritable = lhs.rfind("layouts/", 0) == 0;
-        const bool rhsWritable = rhs.rfind("layouts/", 0) == 0;
-        return lhsWritable && !rhsWritable;
+        return lhs.size() < rhs.size();
     };
 
     auto appendIfJson = [&](const std::string& filePath) {
@@ -387,20 +387,30 @@ std::vector<LayoutConfig::LayoutInfo> LayoutConfig::getAvailableLayouts()
             return;
         }
 
-        const std::string key = getLayoutKey(filePath);
+        // Normalize: if filePath is inside writablePath, strip the prefix to get a
+        // relative path like "layouts/name.json". This keeps paths consistent with what
+        // the editor uses (buildSavePath returns "layouts/name.json").
+        std::string normalized = filePath;
+        const std::string& wp = fileUtils->getWritablePath();
+        if (normalized.find(wp) == 0)
+        {
+            normalized = normalized.substr(wp.size());
+        }
+
+        const std::string key = getLayoutKey(normalized);
         for (auto& existingPath : candidateFiles)
         {
             if (getLayoutKey(existingPath) != key) continue;
-            if (shouldPrefer(filePath, existingPath))
+            if (shouldPrefer(normalized, existingPath))
             {
-                existingPath = filePath;
+                existingPath = normalized;
             }
             return;
         }
 
-        if (seenFiles.insert(filePath).second)
+        if (seenFiles.insert(normalized).second)
         {
-            candidateFiles.push_back(filePath);
+            candidateFiles.push_back(normalized);
         }
     };
 

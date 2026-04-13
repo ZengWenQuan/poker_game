@@ -204,7 +204,6 @@ void GameplayPresenter::playRewardCardsAnimation(int rewardSlotIndex)
         auto* rewardCard = PokerCardView::create(PokerCard::RewardCard(), false);
         const Vec2 rewardParentPos = _host->convertToNodeSpace(rewardWorldPos);
         rewardCard->setPosition(rewardParentPos);
-        rewardCard->setScale(PokerCardView::getCardScale());
         _host->addChild(rewardCard, cfg.getFlyingCardZOrder());
 
         auto* delay = DelayTime::create(i * cfg.getRewardFlyDelay());

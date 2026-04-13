@@ -75,6 +75,8 @@ bool LayoutFlowController::selectIndex(int layoutIndex)
 
 void LayoutFlowController::selectSavedLayout(const std::string& relativePath)
 {
+    // All stored filePath values are now relative (e.g. "layouts/name.json").
+    // The editor's buildSavePath() also returns relative paths — direct match expected.
     for (int i = 0; i < static_cast<int>(_layouts.size()); ++i)
     {
         if (_layouts[i].filePath == relativePath)

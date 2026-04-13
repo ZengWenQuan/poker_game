@@ -1,6 +1,6 @@
 {
     "name": "TriPeaks",
-    "mainPileCount": 3,
+    "mainPileCount": 1,
     "totalSlots": 28,
     "slots": [
         { "id":  0, "pileIndex": 0, "x": 100,  "y": 320, "layer": 0, "rotation": 0, "covers": [] },

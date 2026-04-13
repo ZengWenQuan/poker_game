@@ -261,8 +261,13 @@ PokerCard GameState::removeCardFromSlot(int index,
         revealedSlotIndices->clear();
     }
 
-    for (int childIndex : _coveredChildren[index])
+    // BFS: 移除牌后逐级检查子节点是否暴露，奖励牌移除后也要级联。
+    std::vector<int> toCheck(_coveredChildren[index].begin(),
+                             _coveredChildren[index].end());
+
+    for (size_t qi = 0; qi < toCheck.size(); ++qi)
     {
+        int childIndex = toCheck[qi];
         if (_mainAreaSlots[childIndex].isEmpty())
         {
             continue;
@@ -270,7 +275,6 @@ PokerCard GameState::removeCardFromSlot(int index,
 
         if (isSlotExposed(childIndex))
         {
-            // 只有所有父节点都被清空后，该子节点的顶牌才真正可见。
             _mainAreaSlots[childIndex].setTopCardFaceUp(true);
             if (revealedSlotIndices != nullptr)
             {
@@ -278,28 +282,29 @@ PokerCard GameState::removeCardFromSlot(int index,
             }
 
             // 奖励牌在被翻开且已暴露时立即触发。
-            if (!_mainAreaSlots[childIndex].isEmpty() &&
-                _mainAreaSlots[childIndex].topCard().isReward())
+            if (_mainAreaSlots[childIndex].topCard().isReward())
             {
-                const bool exposed = isSlotExposed(childIndex);
-                if (exposed)
+                auto it = _rewardPayload.find(childIndex);
+                if (it != _rewardPayload.end())
                 {
-                    auto it = _rewardPayload.find(childIndex);
-                    if (it != _rewardPayload.end())
+                    for (const auto& c : it->second)
                     {
-                        for (const auto& c : it->second)
-                        {
-                            _reserveDeck.addCardToTop(c);
-                        }
-                        if (rewardGrants)
-                        {
-                            RewardGrant grant;
-                            grant.slotIndex = childIndex;
-                            grant.payload = it->second;
-                            rewardGrants->push_back(grant);
-                        }
-                        _rewardPayload.erase(it);
-                        _mainAreaSlots[childIndex].popCard(); // 奖励牌触发后移除
+                        _reserveDeck.addCardToTop(c);
+                    }
+                    if (rewardGrants)
+                    {
+                        RewardGrant grant;
+                        grant.slotIndex = childIndex;
+                        grant.payload = it->second;
+                        rewardGrants->push_back(grant);
+                    }
+                    _rewardPayload.erase(it);
+                    _mainAreaSlots[childIndex].popCard(); // 奖励牌触发后移除
+
+                    // 奖励牌移除后，其子节点也需要检查是否暴露。
+                    for (int grandChild : _coveredChildren[childIndex])
+                    {
+                        toCheck.push_back(grandChild);
                     }
                 }
             }
