@@ -1,3 +1,10 @@
+/**
+ * @file LinuxCompat.cpp
+ * @brief Linux 平台兼容桥接。
+ *
+ * 主要功能:
+ *   - 提供 glibc 缺失的 __powf_finite 符号兼容实现
+ */
 #include <cmath>
 
 extern "C" float __powf_finite(float x, float y)

@@ -56,19 +56,26 @@ list(APPEND GAME_SOURCE
      Classes/GameSceneStartOverlay.cpp
      Classes/GameSceneCustom.cpp
      Classes/presenter/GameplayPresenter.cpp
+     Classes/presenter/GameplayView.cpp
+     Classes/presenter/SceneChromePresenter.cpp
+     Classes/presenter/SceneUIManager.cpp
      Classes/LinuxCompat.cpp
      Classes/PokerCard.cpp
      Classes/model/CardDeck.cpp
      Classes/model/CardSlot.cpp
+     Classes/model/CustomLayoutDraft.cpp
      Classes/model/GameState.cpp
      Classes/model/LayoutConfig.cpp
+     Classes/controller/LayoutFlowController.cpp
      Classes/controller/MatchEngine.cpp
      Classes/controller/UndoManager.cpp
      Classes/controller/GameController.cpp
+     Classes/controller/HighlightService.cpp
      Classes/editor/CustomLayoutEditor.cpp
      Classes/history/OperationHistory.cpp
      Classes/view/PokerCardView.cpp
      Classes/view/CardSlotView.cpp
+     Classes/view/InputDetector.cpp
      Classes/view/MainAreaView.cpp
      Classes/view/TopAreaView.cpp
      Classes/config/GlobalConfig.cpp
@@ -82,17 +89,25 @@ list(APPEND GAME_HEADER
      Classes/PokerCard.h
      Classes/model/CardDeck.h
      Classes/model/CardSlot.h
+     Classes/model/CustomLayoutDraft.h
      Classes/model/GameState.h
      Classes/model/LayoutConfig.h
+     Classes/controller/LayoutFlowController.h
      Classes/controller/MatchEngine.h
      Classes/controller/UndoAction.h
      Classes/controller/UndoManager.h
      Classes/controller/GameController.h
+     Classes/controller/HighlightService.h
      Classes/editor/CustomLayoutEditor.h
      Classes/history/OperationHistory.h
      Classes/presenter/GameplayPresenter.h
+     Classes/presenter/GameplayView.h
+     Classes/presenter/IGameplayView.h
+     Classes/presenter/SceneChromePresenter.h
+     Classes/presenter/SceneUIManager.h
      Classes/view/PokerCardView.h
      Classes/view/CardSlotView.h
+     Classes/view/InputDetector.h
      Classes/view/MainAreaView.h
      Classes/view/TopAreaView.h
      Classes/config/GlobalConfig.h

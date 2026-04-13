@@ -1,16 +1,28 @@
+/**
+ * @file GameScene.h
+ * @brief 游戏主场景头文件。
+ *
+ * 主要功能:
+ *   - 管理游戏状态流程 (开始 -> 关卡选择 -> 难度选择 -> 游戏中)
+ *   - 管理自定义布局编辑器状态
+ *   - 声明所有子模块的成员变量和公共接口
+ */
 #ifndef POKER_GAME_GAME_SCENE_H
 #define POKER_GAME_GAME_SCENE_H
 
 #include "cocos2d.h"
 #include "ui/CocosGUI.h"
+#include "controller/LayoutFlowController.h"
 #include "model/GameState.h"
-#include "model/LayoutConfig.h"
 #include "controller/GameController.h"
 
 class MainAreaView;
 class TopAreaView;
 class CustomLayoutEditor;
 class GameplayPresenter;
+class GameplayView;
+class SceneChromePresenter;
+class SceneUIManager;
 
 // 主场景：负责搭建界面、处理关卡切换与启动流程，并将交互事件转发给控制器。
 class GameScene : public cocos2d::Scene
@@ -53,14 +65,22 @@ private:
     // 构建关卡按钮与标签。
     void buildLevelSelector();
     // 切换到指定布局关卡。
-    // layoutIndex: _availableLayouts 中的目标索引。
+    // layoutIndex: 当前布局列表中的目标索引。
     void switchToLayout(int layoutIndex);
     // 切换到下一个关卡（循环）。
     void switchToNextLayout();
+    // 同步编辑模式下主玩法 UI 的显示状态。
+    void setGameplayUIVisible(bool visible);
+    // 在编辑模式中加载指定关卡。
+    void loadLayoutIntoEditor(int layoutIndex);
     // 刷新关卡按钮文案和状态。
     void updateLevelSelectorUI();
-    // 扫描配置目录并重建关卡列表。
-    void refreshAvailableLayouts();
+    // 获取当前应展示的关卡名称。
+    std::string getCurrentLevelDisplayName() const;
+    // 切换中英文并刷新所有 UI 文案。
+    void toggleLanguage();
+    // 刷新场景中所有文案（切换语言后调用）。
+    void refreshAllUI();
     // 搭建开局覆盖层与难度选择。
     void buildStartGameOverlay();
     // 按当前选定难度重开一局。
@@ -86,19 +106,24 @@ private:
     cocos2d::MenuItemLabel* _levelSwitchMenuItem = nullptr;
     cocos2d::MenuItemLabel* _customLayoutMenuItem = nullptr;
     cocos2d::MenuItemLabel* _saveLayoutMenuItem = nullptr;
-    std::vector<LayoutConfig::LayoutInfo> _availableLayouts;
-    int _currentLayoutIndex = 0;
+    cocos2d::MenuItemLabel* _langSwitchMenuItem = nullptr;
     cocos2d::LayerColor* _startGameOverlay = nullptr;
+    cocos2d::Label* _startOverlayTitle = nullptr;
+    cocos2d::Label* _startOverlaySubtitle = nullptr;
     cocos2d::MenuItemLabel* _difficultyOneMenuItem = nullptr;
     cocos2d::MenuItemLabel* _difficultyTwoMenuItem = nullptr;
     cocos2d::MenuItemLabel* _difficultyThreeMenuItem = nullptr;
     cocos2d::MenuItemLabel* _startGameMenuItem = nullptr;
-    int _selectedVisibleTopCardCount = 1;
+    int _selectedVisibleTopCardCount = 1; // 默认值，运行时由配置的 visibleTopCardCountMin 决定
 
     // 逻辑组件。
+    LayoutFlowController _layoutFlowController;
     GameState _gameState;
     GameController* _controller = nullptr;
     GameplayPresenter* _gameplayPresenter = nullptr;
+    GameplayView* _gameplayView = nullptr;
+    SceneChromePresenter* _sceneChromePresenter = nullptr;
+    SceneUIManager* _sceneUIManager = nullptr;
     CustomLayoutEditor* _customLayoutEditor = nullptr;
 };
 

@@ -1,3 +1,12 @@
+/**
+ * @file JsonConfig.cpp
+ * @brief JSON 配置文件读取工具实现。
+ *
+ * 主要功能:
+ *   - 加载 JSON 文件并解析为 rapidjson::Document
+ *   - 提供 lookup() 按路径查询 Value
+ *   - 支持 int/float/string/bool 等类型读取
+ */
 #include "JsonConfig.h"
 #include "logging/GameLogger.h"
 #include "json/document.h"

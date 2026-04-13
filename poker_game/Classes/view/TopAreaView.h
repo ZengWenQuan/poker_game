@@ -1,3 +1,13 @@
+/**
+ * @file TopAreaView.h
+ * @brief 顶部区域视图头文件。
+ *
+ * 主要功能:
+ *   - 明牌窗口、底牌堆、回收按钮
+ *   - bindController: 绑定控制器
+ *   - syncFrom: 从 GameState 同步数据
+ *   - refreshStrings: 刷新文案 (语言切换)
+ */
 #ifndef POKER_GAME_TOP_AREA_VIEW_H
 #define POKER_GAME_TOP_AREA_VIEW_H
 
@@ -29,6 +39,9 @@ public:
     // count: 废牌张数。
     void setWastePileCount(int count);
 
+    // 刷新文案（语言切换后调用）。
+    void refreshStrings();
+
     using DrawCallback = std::function<void()>;
     // 设置底牌点击回调。
     void setDrawCallback(const DrawCallback& cb);
@@ -43,6 +56,9 @@ public:
 
     // 获取顶部牌区域的世界矩形（用于拖放检测）
     cocos2d::Rect getTopCardWorldRect() const;
+
+    // 获取底牌堆的世界坐标（用于奖励牌飞入动画）
+    cocos2d::Vec2 getReserveDeckWorldPosition() const;
 
 private:
     void buildReserveDeck();

@@ -1,3 +1,12 @@
+/**
+ * @file JsonConfig.h
+ * @brief JSON 配置文件读取工具头文件。
+ *
+ * 主要功能:
+ *   - 构造函数接收 JSON 文件路径并自动加载
+ *   - lookup(path): 按 "." 分隔路径查询 Value
+ *   - getInt/getFloat/getBool/getString: 类型安全读取
+ */
 #ifndef POKER_GAME_JSON_CONFIG_H
 #define POKER_GAME_JSON_CONFIG_H
 

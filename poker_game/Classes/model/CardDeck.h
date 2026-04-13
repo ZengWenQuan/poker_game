@@ -1,3 +1,12 @@
+/**
+ * @file CardDeck.h
+ * @brief 卡牌堆数据模型头文件。
+ *
+ * 主要功能:
+ *   - createMultipleStandardDecks: 创建多副牌
+ *   - shuffle: 洗牌
+ *   - deal: 发牌
+ */
 #ifndef POKER_GAME_CARD_DECK_H
 #define POKER_GAME_CARD_DECK_H
 
@@ -22,6 +31,8 @@ public:
     void shuffle();
     // 从顶部发出一张牌并移除。
     PokerCard dealCard();
+    // 从顶部弹出一张牌（与 dealCard 等价，便于撤销逻辑）。
+    PokerCard popTopCard();
     // 牌堆是否为空。
     bool isEmpty() const;
     // 当前剩余牌数。

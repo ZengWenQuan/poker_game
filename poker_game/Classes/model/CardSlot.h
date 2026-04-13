@@ -1,3 +1,11 @@
+/**
+ * @file CardSlot.h
+ * @brief 卡槽数据模型头文件。
+ *
+ * 主要功能:
+ *   - 卡槽中的卡牌列表、朝向管理
+ *   - covers/coveredBy: 覆盖关系查询
+ */
 #ifndef POKER_GAME_CARD_SLOT_H
 #define POKER_GAME_CARD_SLOT_H
 

@@ -1,3 +1,12 @@
+/**
+ * @file GameLogger.cpp
+ * @brief 游戏日志实现。
+ *
+ * 主要功能:
+ *   - 线程安全地写入日志到文件
+ *   - 支持 DEBUG/INFO/WARN/ERROR 四级日志
+ *   - 同时输出到控制台
+ */
 #include "GameLogger.h"
 #include "platform/CCFileUtils.h"
 #include <chrono>

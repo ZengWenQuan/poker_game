@@ -1,3 +1,11 @@
+/**
+ * @file GameLogger.h
+ * @brief 游戏日志头文件。
+ *
+ * 主要功能:
+ *   - LOGD/LOGI/LOGW/LOGE: 四级日志宏
+ *   - 线程安全、文件+控制台双输出
+ */
 #ifndef POKER_GAME_GAME_LOGGER_H
 #define POKER_GAME_GAME_LOGGER_H
 

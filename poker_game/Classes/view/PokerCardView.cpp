@@ -1,3 +1,13 @@
+/**
+ * @file PokerCardView.cpp
+ * @brief 单张卡牌视图实现。
+ *
+ * 主要功能:
+ *   - 创建正面/背面卡牌 Sprite
+ *   - flipToFront/flipToBack: 翻转动画
+ *   - setHighlight: 高亮/取消高亮
+ *   - 静态方法: 获取卡牌宽高用于布局计算
+ */
 #include "PokerCardView.h"
 #include "config/GlobalConfig.h"
 
@@ -10,12 +20,12 @@ cocos2d::Size s_detectedBackgroundSize = cocos2d::Size::ZERO;
 
 namespace
 {
-// 卡牌布局比例值（基于原始卡牌尺寸）
-constexpr float kSuitTargetWidthRatio = 0.18f;
-constexpr float kSmallRankTargetHeightRatio = 0.14f;
-constexpr float kBigRankTargetHeightRatio = 0.40f;
-constexpr float kCornerInsetXRatio = 0.10f;
-constexpr float kCornerInsetYRatio = 0.06f;
+// 卡牌布局比例值，从配置读取。
+float getSuitTargetWidthRatio() { return GlobalConfig::getInstance().getSuitTargetWidthRatio(); }
+float getSmallRankTargetHeightRatio() { return GlobalConfig::getInstance().getSmallRankTargetHeightRatio(); }
+float getBigRankTargetHeightRatio() { return GlobalConfig::getInstance().getBigRankTargetHeightRatio(); }
+float getCornerInsetXRatio() { return GlobalConfig::getInstance().getCornerInsetXRatio(); }
+float getCornerInsetYRatio() { return GlobalConfig::getInstance().getCornerInsetYRatio(); }
 }
 
 // 创建单张牌视图。
@@ -91,6 +101,12 @@ float PokerCardView::getCardWidth()
 float PokerCardView::getCardHeight()
 {
     return getCardSize().height;
+}
+
+float PokerCardView::getCardScale()
+{
+    refreshCardMetrics();
+    return s_cardScale;
 }
 
 // 根据素材尺寸与背景宽度比例重新计算牌尺寸。
@@ -205,12 +221,12 @@ void PokerCardView::buildCardFace()
     _faceNode->setPosition(Vec2::ZERO);
     addChild(_faceNode, 1);
 
-    auto* background = Sprite::create(cfg.getImage("cardFace"));
+    auto* background = Sprite::create(_card.isReward() ? cfg.getImage("rewardCardFace") : cfg.getImage("cardFace"));
     if (background == nullptr)
     {
         background = Sprite::create();
         background->setTextureRect(Rect(0, 0, cw, ch));
-        background->setColor(Color3B::WHITE);
+        background->setColor(_card.isReward() ? cfg.getColor3B("rewardCardFallback") : Color3B::WHITE);
     }
     else if (background->getContentSize().width > 0.0f && background->getContentSize().height > 0.0f)
     {
@@ -221,11 +237,11 @@ void PokerCardView::buildCardFace()
     background->setPosition(Vec2(cw * 0.5f, ch * 0.5f));
     _faceNode->addChild(background);
 
-    const float insetX = cw * kCornerInsetXRatio;
-    const float insetY = ch * kCornerInsetYRatio;
+    const float insetX = cw * getCornerInsetXRatio();
+    const float insetY = ch * getCornerInsetYRatio();
 
-    // 当前牌面资源布局固定为：左上花色、右上小数字、中心大数字。
-    const float suitTargetW = cw * kSuitTargetWidthRatio;
+    const float suitTargetW = cw * getSuitTargetWidthRatio();
+    if (!_card.isReward())
     {
         auto* suitSprite = Sprite::create(_card.suitTexturePath());
         if (suitSprite)
@@ -238,7 +254,8 @@ void PokerCardView::buildCardFace()
     }
 
     // --- 右上角：小数字 ---
-    const float smallRankTargetH = ch * kSmallRankTargetHeightRatio;
+    const float smallRankTargetH = ch * getSmallRankTargetHeightRatio();
+    if (!_card.isReward())
     {
         auto* rankSprite = Sprite::create(_card.smallRankTexturePath());
         if (rankSprite)
@@ -251,7 +268,8 @@ void PokerCardView::buildCardFace()
     }
 
     // --- 正中间：大数字 ---
-    const float bigRankTargetH = ch * kBigRankTargetHeightRatio;
+    const float bigRankTargetH = ch * getBigRankTargetHeightRatio();
+    if (!_card.isReward())
     {
         auto* rankSprite = Sprite::create(_card.bigRankTexturePath());
         if (rankSprite)
@@ -277,7 +295,7 @@ void PokerCardView::buildCardBack()
     _backNode->setPosition(Vec2::ZERO);
     addChild(_backNode, 1);
 
-    auto* back = Sprite::create(cfg.getImage("cardBack"));
+    auto* back = Sprite::create(_card.isReward() ? cfg.getImage("rewardCardBack") : cfg.getImage("cardBack"));
     if (back == nullptr) return;
 
     if (back->getContentSize().width > 0.0f && back->getContentSize().height > 0.0f)

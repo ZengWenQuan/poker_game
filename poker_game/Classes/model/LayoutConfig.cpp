@@ -1,3 +1,12 @@
+/**
+ * @file LayoutConfig.cpp
+ * @brief 布局配置加载与解析实现。
+ *
+ * 主要功能:
+ *   - 从 layouts/*.json 加载布局
+ *   - 解析 SlotLayout 列表并计算覆盖关系
+ *   - buildGameState: 根据布局构建游戏状态
+ */
 #include "LayoutConfig.h"
 #include "config/GlobalConfig.h"
 #include "logging/GameLogger.h"
@@ -275,6 +284,7 @@ bool LayoutConfig::loadFromFile(const std::string& filePath)
         layout.layer = slotObj.HasMember("layer") ? slotObj["layer"].GetInt() : 0;
         hasLayerField = hasLayerField || slotObj.HasMember("layer");
         layout.rotation = slotObj.HasMember("rotation") ? slotObj["rotation"].GetFloat() : 0.0f;
+        layout.isReward = slotObj.HasMember("reward") && slotObj["reward"].IsBool() ? slotObj["reward"].GetBool() : false;
 
         if (slotObj.HasMember("covers") && slotObj["covers"].IsArray())
         {
@@ -318,6 +328,7 @@ bool LayoutConfig::loadFromFile(const std::string& filePath)
                 SlotLayout layout = templateSlots[i];
                 layout.id = pile * static_cast<int>(templateSlots.size()) + i;
                 layout.pileIndex = pile;
+                layout.isReward = templateSlots[i].isReward;
 
                 std::vector<int> remappedCovers;
                 remappedCovers.reserve(layout.covers.size());
@@ -352,11 +363,23 @@ bool LayoutConfig::loadFromFile(const std::string& filePath)
 
 std::vector<LayoutConfig::LayoutInfo> LayoutConfig::getAvailableLayouts()
 {
-    // 汇总配置文件声明与目录扫描到的布局列表，去重后按名称排序。
+    // 汇总配置文件声明与目录扫描到的布局列表。
+    // 若 writable layouts/ 中存在同名文件，则优先使用它，避免编辑内置关卡后出现重复项。
     std::vector<LayoutInfo> layouts;
     auto* fileUtils = cocos2d::FileUtils::getInstance();
     std::vector<std::string> candidateFiles;
     std::set<std::string> seenFiles;
+
+    auto getLayoutKey = [](const std::string& filePath) {
+        const size_t slashPos = filePath.find_last_of("/\\");
+        return slashPos == std::string::npos ? filePath : filePath.substr(slashPos + 1);
+    };
+
+    auto shouldPrefer = [](const std::string& lhs, const std::string& rhs) {
+        const bool lhsWritable = lhs.rfind("layouts/", 0) == 0;
+        const bool rhsWritable = rhs.rfind("layouts/", 0) == 0;
+        return lhsWritable && !rhsWritable;
+    };
 
     auto appendIfJson = [&](const std::string& filePath) {
         if (filePath.size() < 5 || filePath.substr(filePath.size() - 5) != ".json")
@@ -364,7 +387,17 @@ std::vector<LayoutConfig::LayoutInfo> LayoutConfig::getAvailableLayouts()
             return;
         }
 
-        // 用 set 去重，兼容配置列表和目录扫描同时指向同一布局文件的情况。
+        const std::string key = getLayoutKey(filePath);
+        for (auto& existingPath : candidateFiles)
+        {
+            if (getLayoutKey(existingPath) != key) continue;
+            if (shouldPrefer(filePath, existingPath))
+            {
+                existingPath = filePath;
+            }
+            return;
+        }
+
         if (seenFiles.insert(filePath).second)
         {
             candidateFiles.push_back(filePath);
@@ -377,10 +410,7 @@ std::vector<LayoutConfig::LayoutInfo> LayoutConfig::getAvailableLayouts()
         appendIfJson(filePath);
     }
 
-    const std::vector<std::string> layoutDirs = {
-        "config/layouts/",
-        "layouts/"
-    };
+    const std::vector<std::string> layoutDirs = cfg.getLayoutDirs();
 
     for (const auto& dir : layoutDirs)
     {

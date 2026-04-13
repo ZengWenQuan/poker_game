@@ -1,3 +1,12 @@
+/**
+ * @file UndoManager.h
+ * @brief 撤销管理器头文件。
+ *
+ * 主要功能:
+ *   - pushAction: 压入动作
+ *   - undo/redo/canUndo/canRedo
+ *   - clear
+ */
 #ifndef POKER_GAME_UNDO_MANAGER_H
 #define POKER_GAME_UNDO_MANAGER_H
 

@@ -22,6 +22,13 @@
  THE SOFTWARE.
  ****************************************************************************/
 
+/**
+ * @file AppDelegate.h
+ * @brief Cocos2d-x 应用入口头文件。
+ *
+ * 主要功能:
+ *   - 声明应用生命周期方法 (applicationDidFinishLaunching 等)
+ */
 #ifndef  _APP_DELEGATE_H_
 #define  _APP_DELEGATE_H_
 

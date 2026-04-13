@@ -1,7 +1,18 @@
+/**
+ * @file GameScene.cpp
+ * @brief 游戏主场景入口实现。
+ *
+ * 主要功能:
+ *   - 创建游戏主场景，管理游戏流程状态切换
+ *   - 协调 GameplayPresenter、SceneChromePresenter、CustomLayoutEditor 协同工作
+ */
 #include "GameScene.h"
 #include "editor/CustomLayoutEditor.h"
 #include "logging/GameLogger.h"
 #include "presenter/GameplayPresenter.h"
+#include "presenter/GameplayView.h"
+#include "presenter/SceneChromePresenter.h"
+#include "presenter/SceneUIManager.h"
 
 USING_NS_CC;
 
@@ -13,7 +24,10 @@ Scene* GameScene::createScene()
 // 释放控制器、Presenter、编辑器等堆对象。
 GameScene::~GameScene()
 {
+    delete _sceneChromePresenter;
     delete _gameplayPresenter;
+    delete _gameplayView;
+    delete _sceneUIManager;
     delete _customLayoutEditor;
     delete _controller;
 }
@@ -29,14 +43,18 @@ bool GameScene::init()
 
     GAME_LOG_INFO("GameScene init started");
 
+    _sceneChromePresenter = new SceneChromePresenter();
+    _sceneUIManager = new SceneUIManager();
+
     // 初始化顺序很重要：先把静态 UI 搭起来，再初始化控制器和 presenter，最后开局。
     buildBackground();
     buildUI();
     buildLevelSelector();
     initializeGameController();
-    _gameplayPresenter = new GameplayPresenter(this, _mainArea, _topArea, *_controller, _gameState);
+    _gameplayView = new GameplayView(_mainArea, _topArea);
+    _gameplayPresenter = new GameplayPresenter(this, _gameplayView, *_controller, _gameState);
     _gameplayPresenter->setStatusCallback([this](const std::string& text, const Color4B* color) {
-        setStatusText(text, color);
+        _sceneUIManager->setStatusText(text, color);
     });
     startGame();
     bindCallbacks();

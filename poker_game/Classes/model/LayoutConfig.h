@@ -1,3 +1,12 @@
+/**
+ * @file LayoutConfig.h
+ * @brief 布局配置头文件。
+ *
+ * 主要功能:
+ *   - SlotLayout: 单个槽位的布局信息 (id/position/layer/pileIndex)
+ *   - LayoutConfig: 布局配置 (名称/主牌区数量/槽位列表/覆盖规则)
+ *   - buildGameState: 从配置构建游戏状态
+ */
 #ifndef POKER_GAME_LAYOUT_CONFIG_H
 #define POKER_GAME_LAYOUT_CONFIG_H
 
@@ -14,6 +23,7 @@ struct SlotLayout
     int layer = 0;             // 层级，数值越小越靠上；动态计算遮挡关系时依赖该值
     float rotation = 0.0f;     // 旋转角度（度），以左下角为圆心，顺时针为正
     std::vector<int> covers;   // 压住当前槽位的父节点列表，用于判断当前牌是否可翻开
+    bool isReward = false;     // 是否放置奖励牌（奖励牌代表额外三张底牌）
 };
 
 // 布局配置：负责解析布局 JSON，提供槽位数据，并生成动态遮挡关系。

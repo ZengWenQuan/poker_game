@@ -1,38 +1,51 @@
+/**
+ * @file GameSceneStartOverlay.cpp
+ * @brief 开局难度选择弹层实现。
+ */
 #include "GameScene.h"
 #include "config/GlobalConfig.h"
 #include "logging/GameLogger.h"
+#include "presenter/SceneChromePresenter.h"
+#include "view/UILabelHelper.h"
 
 USING_NS_CC;
 
-// 搭建开局难度选择弹层（选择顶部明牌数量）。
 void GameScene::buildStartGameOverlay()
 {
-    auto& theme = GlobalConfig::getInstance();
+    auto& cfg = GlobalConfig::getInstance();
     auto& strings = GlobalConfig::getInstance();
     const auto visibleSize = Director::getInstance()->getVisibleSize();
     const auto origin = Director::getInstance()->getVisibleOrigin();
 
-    // 开局弹层只负责选择顶部明牌窗口大小，相当于难度选择。
-    _startGameOverlay = LayerColor::create(Color4B(0, 0, 0, 170), visibleSize.width, visibleSize.height);
+    _startGameOverlay = LayerColor::create(cfg.getColor4B("overlayMask"), visibleSize.width, visibleSize.height);
     _startGameOverlay->setPosition(origin);
     addChild(_startGameOverlay, 12);
 
-    auto* panel = LayerColor::create(Color4B(26, 48, 30, 235), 620.0f, 280.0f);
+    const Size panelSize = cfg.getDialogSize("startOverlay", "panelSize", Size(620, 280));
+    auto* panel = LayerColor::create(cfg.getColor4B("dialogPanel"), panelSize.width, panelSize.height);
     panel->setIgnoreAnchorPointForPosition(false);
     panel->setAnchorPoint(Vec2(0.5f, 0.5f));
     panel->setPosition(origin + visibleSize / 2.0f);
     _startGameOverlay->addChild(panel);
 
-    auto* title = Label::createWithSystemFont(strings.get("startGame"), theme.getFont(), theme.getFontSize("levelTitle"));
-    title->setPosition(Vec2(310.0f, 220.0f));
+    const Vec2 titlePos = cfg.getDialogVec2("startOverlay", "titlePosition", Vec2(310, 220));
+    auto* title = UiLabelHelper::create(strings.get("startGame"), cfg.getFont(), cfg.getFontSize("levelTitle"));
+    title->setPosition(titlePos);
     panel->addChild(title);
+    _startOverlayTitle = title;
 
-    auto* subtitle = Label::createWithSystemFont(strings.get("openBaseCards"), theme.getFont(), theme.getFontSize("status"));
-    subtitle->setPosition(Vec2(310.0f, 175.0f));
+    const Vec2 subtitlePos = cfg.getDialogVec2("startOverlay", "subtitlePosition", Vec2(310, 175));
+    auto* subtitle = UiLabelHelper::create(strings.get("openBaseCards"), cfg.getFont(), cfg.getFontSize("status"));
+    subtitle->setPosition(subtitlePos);
     panel->addChild(subtitle);
+    _startOverlaySubtitle = subtitle;
+
+    const Vec2 diffOnePos = cfg.getDialogVec2("startOverlay", "difficultyOnePosition", Vec2(170, 118));
+    const Vec2 diffTwoPos = cfg.getDialogVec2("startOverlay", "difficultyTwoPosition", Vec2(310, 118));
+    const Vec2 diffThreePos = cfg.getDialogVec2("startOverlay", "difficultyThreePosition", Vec2(460, 118));
 
     auto makeDifficultyItem = [&](const std::string& text, const Vec2& pos, int count) {
-        auto* label = Label::createWithSystemFont(text, theme.getFont(), theme.getFontSize("levelBtn"));
+        auto* label = UiLabelHelper::create(text, cfg.getFont(), cfg.getFontSize("levelBtn"));
         auto* item = MenuItemLabel::create(label, [this, count](Ref*) {
             _selectedVisibleTopCardCount = count;
             updateStartGameDifficultyUI();
@@ -41,16 +54,17 @@ void GameScene::buildStartGameOverlay()
         return item;
     };
 
-    _difficultyOneMenuItem = makeDifficultyItem("1 " + strings.get("difficultyHard"), Vec2(170.0f, 118.0f), 1);
-    _difficultyTwoMenuItem = makeDifficultyItem("2 " + strings.get("difficultyMedium"), Vec2(310.0f, 118.0f), 2);
-    _difficultyThreeMenuItem = makeDifficultyItem("3 " + strings.get("difficultyEasy"), Vec2(460.0f, 118.0f), 3);
+    _difficultyOneMenuItem = makeDifficultyItem(strings.get("difficultyOne") + strings.get("difficultyHard"), diffOnePos, 1);
+    _difficultyTwoMenuItem = makeDifficultyItem(strings.get("difficultyTwo") + strings.get("difficultyMedium"), diffTwoPos, 2);
+    _difficultyThreeMenuItem = makeDifficultyItem(strings.get("difficultyThree") + strings.get("difficultyEasy"), diffThreePos, 3);
 
-    auto* startLabel = Label::createWithSystemFont(strings.get("startGame"), theme.getFont(), theme.getFontSize("levelTitle"));
+    const Vec2 startPos = cfg.getDialogVec2("startOverlay", "startButtonPosition", Vec2(310, 52));
+    auto* startLabel = UiLabelHelper::create(strings.get("startGame"), cfg.getFont(), cfg.getFontSize("levelTitle"));
     _startGameMenuItem = MenuItemLabel::create(startLabel, [this](Ref*) {
         restartGameWithSelectedDifficulty();
         _startGameOverlay->setVisible(false);
     });
-    _startGameMenuItem->setPosition(Vec2(310.0f, 52.0f));
+    _startGameMenuItem->setPosition(startPos);
 
     auto* menu = Menu::create(_difficultyOneMenuItem,
                               _difficultyTwoMenuItem,
@@ -60,34 +74,31 @@ void GameScene::buildStartGameOverlay()
     menu->setPosition(Vec2::ZERO);
     panel->addChild(menu);
 
+    if (_sceneChromePresenter)
+    {
+        _sceneChromePresenter->bindStartOverlay(_startOverlayTitle,
+                                                _startOverlaySubtitle,
+                                                _difficultyOneMenuItem,
+                                                _difficultyTwoMenuItem,
+                                                _difficultyThreeMenuItem,
+                                                _startGameMenuItem);
+    }
+
     updateStartGameDifficultyUI();
 }
 
-// 按当前选定明牌数量重开一局。
 void GameScene::restartGameWithSelectedDifficulty()
 {
-    // 难度本质上就是“顶部明牌窗口数量”。
     _gameState.setVisibleTopCardCount(_selectedVisibleTopCardCount);
     startGame();
     setStatusText(GlobalConfig::getInstance().get("openBaseCards") + " " + std::to_string(_selectedVisibleTopCardCount));
     GAME_LOG_INFO("Restarted game with visibleTopCardCount=%d", _selectedVisibleTopCardCount);
 }
 
-// 刷新难度按钮高亮态。
 void GameScene::updateStartGameDifficultyUI()
 {
-    auto& theme = GlobalConfig::getInstance();
-    // 当前选中项通过颜色和轻微放大共同强调。
-    auto updateItem = [&](MenuItemLabel* item, bool selected) {
-        if (!item) return;
-        auto* label = dynamic_cast<Label*>(item->getLabel());
-        if (!label) return;
-        label->setTextColor(selected ? theme.getColor4B("winGold") : theme.getColor4B("goldHighlight"));
-        label->setScale(selected ? 1.08f : 1.0f);
-    };
-
-    updateItem(_difficultyOneMenuItem, _selectedVisibleTopCardCount == 1);
-    updateItem(_difficultyTwoMenuItem, _selectedVisibleTopCardCount == 2);
-    updateItem(_difficultyThreeMenuItem, _selectedVisibleTopCardCount == 3);
-    updateItem(_startGameMenuItem, false);
+    if (_sceneChromePresenter)
+    {
+        _sceneChromePresenter->refreshStartOverlay(_selectedVisibleTopCardCount);
+    }
 }

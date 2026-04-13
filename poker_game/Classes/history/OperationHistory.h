@@ -1,7 +1,16 @@
+/**
+ * @file OperationHistory.h
+ * @brief 操作历史记录头文件。
+ *
+ * 主要功能:
+ *   - recordMatch/recordRecycle: 记录操作
+ *   - Operation: 存储操作类型和数据
+ */
 #ifndef POKER_GAME_OPERATION_HISTORY_H
 #define POKER_GAME_OPERATION_HISTORY_H
 
 #include "PokerCard.h"
+#include "model/RewardGrant.h"
 #include <vector>
 
 enum class OperationType
@@ -19,6 +28,7 @@ struct GameOperation
     PokerCard drawnCard;                          // 抽牌操作中的新牌
     std::vector<PokerCard> previousOpenTopCards;  // 操作前顶部明牌窗口快照
     bool movedOpenCardToWaste = false;            // 抽牌是否把旧牌挤入废牌堆
+    std::vector<RewardGrant> rewardGrants;        // 本次操作触发的奖励牌列表
 };
 
 // 操作历史：记录对局过程中的匹配与抽牌，支持撤销。
@@ -31,7 +41,8 @@ public:
     void recordMatch(const PokerCard& movedCard,
                      int slotIndex,
                      const std::vector<int>& revealedSlotIndices,
-                     const std::vector<PokerCard>& previousOpenTopCards);
+                     const std::vector<PokerCard>& previousOpenTopCards,
+                     const std::vector<RewardGrant>& rewardGrants);
 
     // 记录一次抽牌操作。
     // drawnCard: 新抽到的牌；previousOpenTopCards: 抽牌前明牌窗口；

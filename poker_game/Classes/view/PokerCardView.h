@@ -1,3 +1,12 @@
+/**
+ * @file PokerCardView.h
+ * @brief 单张卡牌视图头文件。
+ *
+ * 主要功能:
+ *   - flipToFront / flipToBack / flipToFaceUp
+ *   - setHighlight / setScale
+ *   - 静态方法: getCardWidth / getCardHeight / getCardSize
+ */
 #ifndef POKER_GAME_POKER_CARD_VIEW_H
 #define POKER_GAME_POKER_CARD_VIEW_H
 
@@ -33,6 +42,7 @@ public:
     static cocos2d::Size getCardSize();
     static float getCardWidth();
     static float getCardHeight();
+    static float getCardScale();
     // 从资源重新探测尺寸并刷新缩放。
     static void refreshCardMetrics();
 

@@ -1,5 +1,16 @@
+/**
+ * @file TopAreaView.cpp
+ * @brief 顶部区域视图实现。
+ *
+ * 主要功能:
+ *   - 展示明牌窗口 (翻开的主牌区顶牌)
+ *   - 展示底牌堆 (背面朝上)
+ *   - 回收按钮
+ *   - 底牌/废牌数量文案显示
+ */
 #include "TopAreaView.h"
 #include "config/GlobalConfig.h"
+#include "UILabelHelper.h"
 #include <algorithm>
 
 USING_NS_CC;
@@ -72,9 +83,9 @@ void TopAreaView::buildReserveLabel()
     Vec2 labelPos = Vec2(_areaWidth * cfg.getReserveLabelPositionRatio().x,
                          _areaHeight * cfg.getReserveLabelPositionRatio().y);
 
-    _reserveLabel = Label::createWithSystemFont(strings.get("reserve") + "0", theme.getFont(), theme.getFontSize("reserveLabel"));
+    _reserveLabel = UiLabelHelper::create(strings.get("reserve") + "0", theme.getFont(), theme.getFontSize("reserveLabel"));
     _reserveLabel->setPosition(labelPos);
-    _reserveLabel->setTextColor(Color4B::WHITE);
+    _reserveLabel->setTextColor(theme.getColor4B("buttonText"));
     addChild(_reserveLabel, 2);
 }
 
@@ -88,7 +99,7 @@ void TopAreaView::buildRecycleButton()
     Vec2 recyclePos = Vec2(_areaWidth * cfg.getRecyclePositionRatio().x,
                            _areaHeight * cfg.getRecyclePositionRatio().y);
 
-    _recycleButton = Label::createWithSystemFont(strings.get("recycle"), theme.getFont(), theme.getFontSize("recycle"));
+    _recycleButton = UiLabelHelper::create(strings.get("recycle"), theme.getFont(), theme.getFontSize("recycle"));
     _recycleButton->setTextColor(theme.getColor4B("goldHighlight"));
     _recycleButton->setPosition(recyclePos);
     _recycleButton->setVisible(false);
@@ -187,6 +198,12 @@ cocos2d::Vec2 TopAreaView::getTopCardWorldPosition() const
     return convertToWorldSpace(defaultPos);
 }
 
+// 获取底牌堆的世界坐标（用于奖励牌飞入动画）。
+cocos2d::Vec2 TopAreaView::getReserveDeckWorldPosition() const
+{
+    return _reserveDeckView->convertToWorldSpace(Vec2::ZERO);
+}
+
 // 更新底牌堆数量并刷新显示。
 void TopAreaView::setReserveCount(int count)
 {
@@ -222,7 +239,7 @@ void TopAreaView::animateOpenTopCards(const std::vector<PokerCard>& cards)
     // 抽牌和撤销抽牌时只做轻量缩放反馈，不引入额外飞行动画。
     for (auto* cardView : _openTopCardViews)
     {
-        cardView->setScale(0.8f);
+        cardView->setScale(cfg.getTopCardScaleUpFrom());
         cardView->runAction(ScaleTo::create(cfg.getTopCardScaleUpDuration(), 1.0f));
     }
 }
@@ -291,4 +308,17 @@ void TopAreaView::rebuildReserveDeckVisual()
         cardBack->setPosition(Vec2(-stepX * static_cast<float>(i), 0.0f));
         _reserveDeckView->addChild(cardBack, _reserveCount - i);
     }
+}
+
+void TopAreaView::refreshStrings()
+{
+    auto& strings = GlobalConfig::getInstance();
+    auto& theme = GlobalConfig::getInstance();
+
+    // 底牌/废牌数量文案
+    std::string wasteInfo = _wastePileCount > 0 ? (strings.get("waste") + std::to_string(_wastePileCount)) : "";
+    _reserveLabel->setString(strings.get("reserve") + std::to_string(_reserveCount) + wasteInfo);
+
+    // 回收按钮
+    _recycleButton->setString(strings.get("recycle"));
 }

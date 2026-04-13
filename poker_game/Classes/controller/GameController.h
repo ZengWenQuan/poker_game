@@ -1,8 +1,18 @@
+/**
+ * @file GameController.h
+ * @brief 游戏控制器头文件。
+ *
+ * 主要功能:
+ *   - handleReserveClick / handleMainPileClick / handleRecycleClick
+ *   - undo() / redo()
+ *   - checkWin() / advanceToNextLevel()
+ */
 #ifndef POKER_GAME_GAME_CONTROLLER_H
 #define POKER_GAME_GAME_CONTROLLER_H
 
 #include "GameState.h"
 #include "MatchEngine.h"
+#include "HighlightService.h"
 #include "history/OperationHistory.h"
 
 enum class GameActionType
@@ -23,6 +33,7 @@ struct GameActionResult
     int slotIndex = -1;                         // 若和主牌区相关，则返回对应槽位索引
     PokerCard card;                             // 本次操作涉及的主要牌对象
     bool won = false;                           // 操作完成后是否已经获胜
+    int rewardSlotIndex = -1;                    // 触发的奖励牌槽位索引，-1 表示无奖励牌
 };
 
 // 游戏流程控制器：封装匹配规则、抽牌/回收/撤销逻辑，直接操作 GameState。
@@ -48,14 +59,12 @@ public:
     // 获取当前可见的顶部明牌集合。
     const std::vector<PokerCard>& getOpenTopCards() const;
 
-    // 供 View 判断一个槽位当前是否应高亮。
-    // slotIndex: 主牌区槽位索引。
-    bool isSlotMatchable(int slotIndex) const;
-    // 返回所有槽位是否可匹配的布尔数组，索引与槽位对齐。
-    std::vector<bool> getHighlightStates() const;
+    // 高亮计算委托给 HighlightService。
+    const HighlightService& getHighlightService() const;
 
 private:
     GameState& _state;                  // 游戏状态唯一数据源
+    HighlightService _highlightService; // 高亮计算服务
     OperationHistory _operationHistory; // 撤销历史
 };
 

@@ -1,5 +1,5 @@
 {
-    "font": "Arial",
+    "font": "fonts/wqy-microhei.ttc",
     "fontSize": {
         "undo": 36,
         "status": 28,
@@ -14,7 +14,56 @@
         "winGold": [255, 215, 0, 255],
         "cardHighlight": [180, 255, 180],
         "cardGreyed": [160, 160, 160],
-        "redSuit": [190, 40, 40, 255]
+        "redSuit": [190, 40, 40, 255],
+        "buttonText": [255, 255, 255, 255],
+        "rewardCardFallback": [255, 204, 0, 255],
+        "overlayMask": [0, 0, 0, 170],
+        "dialogPanel": [26, 48, 30, 235],
+        "dialogPanelAlt": [30, 45, 32, 235],
+        "editorMainAreaMask": [255, 255, 255, 18],
+        "editorTrayMask": [0, 0, 0, 60]
+    },
+    "dialogs": {
+        "startOverlay": {
+            "panelSize": [620, 280],
+            "titlePosition": [310, 220],
+            "subtitlePosition": [310, 175],
+            "difficultyOnePosition": [170, 118],
+            "difficultyTwoPosition": [310, 118],
+            "difficultyThreePosition": [460, 118],
+            "startButtonPosition": [310, 52]
+        },
+        "saveDialog": {
+            "panelSize": [520, 220],
+            "titlePosition": [260, 175],
+            "editBoxSize": [360, 56],
+            "editBoxPosition": [260, 110],
+            "editBoxMaxLength": 48,
+            "confirmPosition": [180, 42],
+            "cancelPosition": [340, 42]
+        },
+        "confirmDialog": {
+            "panelSize": [620, 240],
+            "titlePosition": [310, 185],
+            "messagePosition": [310, 118],
+            "savePosition": [160, 50],
+            "discardPosition": [310, 50],
+            "cancelPosition": [460, 50]
+        }
+    },
+    "editor": {
+        "trayMarginLeft": 60,
+        "trayMarginBottom": 40,
+        "trayWidthAdjust": -120,
+        "trayHeightRatio": 0.28,
+        "mainAreaMarginLeft": 80,
+        "mainAreaBottomRatio": 0.22,
+        "mainAreaWidthAdjust": -160,
+        "mainAreaHeightRatio": 0.62,
+        "trayColumns": 13,
+        "traySpacingXRatio": 1.05,
+        "traySpacingYRatio": 1.02,
+        "mainAreaGridDivisions": 100
     },
     "images": {
         "background": "res/background.png",

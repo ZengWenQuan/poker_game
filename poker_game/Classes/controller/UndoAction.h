@@ -1,3 +1,12 @@
+/**
+ * @file UndoAction.h
+ * @brief 撤销动作数据结构。
+ *
+ * 主要功能:
+ *   - MatchAction : 记录匹配操作 (移出的卡槽索引)
+ *   - FlipAction  : 记录翻牌操作 (翻开/合上)
+ *   - RecycleAction: 记录回收操作
+ */
 #ifndef POKER_GAME_UNDO_ACTION_H
 #define POKER_GAME_UNDO_ACTION_H
 

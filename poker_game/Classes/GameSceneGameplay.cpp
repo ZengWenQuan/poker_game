@@ -1,3 +1,11 @@
+/**
+ * @file GameSceneGameplay.cpp
+ * @brief 游戏玩法场景实现。
+ *
+ * 主要功能:
+ *   - 构建游戏主界面 (主牌区 MainAreaView + 顶部区 TopAreaView)
+ *   - 构建关卡选择区和顶栏按钮
+ */
 #include "GameScene.h"
 #include "view/MainAreaView.h"
 #include "view/TopAreaView.h"
@@ -14,29 +22,23 @@ void GameScene::initializeGameController()
 
     // 控制器依赖 GameState，布局列表则来自前面已构建好的关卡选择数据。
     _controller = new GameController(_gameState);
+    _layoutFlowController.initializeDefaultIndex(cfg.getDefaultLayoutIndex());
 
-    if (!_availableLayouts.empty())
+    if (_layoutFlowController.hasLayouts())
     {
-        int defaultIdx = cfg.getDefaultLayoutIndex();
-        if (defaultIdx < 0 || defaultIdx >= static_cast<int>(_availableLayouts.size()))
+        const auto& info = _layoutFlowController.layouts()[_layoutFlowController.currentIndex()];
+        if (!_layoutFlowController.loadCurrentIntoGameplay(_gameState, _selectedVisibleTopCardCount))
         {
-            defaultIdx = 0;
-        }
-        _currentLayoutIndex = defaultIdx;
-        if (!_gameState.loadLayout(_availableLayouts[defaultIdx].filePath))
-        {
-            GAME_LOG_ERROR("Failed to load default layout config: %s", _availableLayouts[defaultIdx].filePath.c_str());
+            GAME_LOG_ERROR("Failed to load default layout config: %s", info.filePath.c_str());
         }
         else
         {
             GAME_LOG_INFO("Default layout loaded: index=%d name=%s file=%s",
-                          defaultIdx,
-                          _availableLayouts[defaultIdx].name.c_str(),
-                          _availableLayouts[defaultIdx].filePath.c_str());
+                          _layoutFlowController.currentIndex(),
+                          info.name.c_str(),
+                          info.filePath.c_str());
         }
     }
-
-    _gameState.setVisibleTopCardCount(_selectedVisibleTopCardCount);
 }
 
 // 重开或首开一局，根据当前布局刷新视图。
@@ -87,7 +89,7 @@ void GameScene::onCardDragEnd(int slotIndex, const Vec2& worldPos)
     if (slotView == nullptr) return;
 
     // 拖到顶部牌区附近且规则允许时，直接视为一次匹配输入。
-    if (_gameplayPresenter->isNearTopCardArea(worldPos) && _controller->isSlotMatchable(slotIndex))
+    if (_gameplayPresenter->isNearTopCardArea(worldPos) && _controller->getHighlightService().isSlotMatchable(slotIndex))
     {
         _gameplayPresenter->handleResult(_controller->onSlotCardTapped(slotIndex));
         return;

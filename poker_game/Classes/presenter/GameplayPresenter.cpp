@@ -1,60 +1,58 @@
+/**
+ * @file GameplayPresenter.cpp
+ * @brief 游戏玩法流程协调实现。
+ *
+ * 主要功能:
+ *   - 通过 IGameplayView 接口驱动视图更新
+ *   - 管理动画播放、输入锁、胜利检测
+ */
 #include "presenter/GameplayPresenter.h"
 
 #include "model/GameState.h"
-#include "view/MainAreaView.h"
 #include "view/PokerCardView.h"
-#include "view/TopAreaView.h"
 #include "config/GlobalConfig.h"
 
 USING_NS_CC;
 
 GameplayPresenter::GameplayPresenter(Node* host,
-                                     MainAreaView* mainArea,
-                                     TopAreaView* topArea,
+                                     IGameplayView* view,
                                      GameController& controller,
                                      GameState& state)
     : _host(host)
-    , _mainArea(mainArea)
-    , _topArea(topArea)
+    , _view(view)
     , _controller(controller)
     , _state(state)
 {
 }
 
-// 设置状态栏输出回调。
 void GameplayPresenter::setStatusCallback(const StatusCallback& cb)
 {
     _setStatus = cb;
 }
 
-// 全量刷新主牌区、顶部牌区和高亮。
 void GameplayPresenter::refreshViews()
 {
-    // 主牌区、顶部牌区和高亮都依赖当前最新状态，统一在这里刷新。
     refreshMainArea();
     syncTopAreaState(false);
-    _mainArea->updateHighlights(_controller.getHighlightStates());
+    _view->updateHighlights(_controller.getHighlightService().getHighlightStates());
 }
 
-// 同步顶部区域状态，可选动画。
 void GameplayPresenter::syncTopAreaState(bool animated)
 {
     const auto& openTopCards = _controller.getOpenTopCards();
     if (animated)
     {
-        _topArea->animateOpenTopCards(openTopCards);
+        _view->animateOpenTopCards(openTopCards);
     }
     else
     {
-        _topArea->setOpenTopCards(openTopCards);
+        _view->setOpenTopCards(openTopCards);
     }
 
-    // 顶部明牌窗口与 reserve / waste 计数必须同步更新。
-    _topArea->setReserveCount(_state.reserveDeckSize());
-    _topArea->setWastePileCount(_state.wastePileSize());
+    _view->setReserveCount(_state.reserveDeckSize());
+    _view->setWastePileCount(_state.wastePileSize());
 }
 
-// 根据一次游戏动作结果驱动界面刷新和动画。
 void GameplayPresenter::handleResult(const GameActionResult& result)
 {
     auto& cfg = GlobalConfig::getInstance();
@@ -67,9 +65,7 @@ void GameplayPresenter::handleResult(const GameActionResult& result)
     {
         setInputLocked(true);
 
-        // 为了做“从主牌区飞向顶部”的动画，需要把卡牌节点临时提到场景根节点。
-        auto* slotView = _mainArea->getSlotView(result.slotIndex);
-        auto* topCardView = slotView ? slotView->getTopCardView() : nullptr;
+        auto* topCardView = dynamic_cast<PokerCardView*>(_view->getSlotTopCardView(result.slotIndex));
         if (topCardView == nullptr)
         {
             finishAnimation(cfg.get("matched"));
@@ -78,17 +74,22 @@ void GameplayPresenter::handleResult(const GameActionResult& result)
 
         const Vec2 worldPos = topCardView->convertToWorldSpace(Vec2::ZERO);
         const Vec2 parentPos = _host->convertToNodeSpace(worldPos);
-        const Vec2 targetParentPos = _host->convertToNodeSpace(_topArea->getTopCardWorldPosition());
+        const Vec2 targetParentPos = _host->convertToNodeSpace(_view->getTopCardWorldPosition());
 
         topCardView->retain();
         topCardView->removeFromParentAndCleanup(false);
-        _host->addChild(topCardView, 10);
+        _host->addChild(topCardView, cfg.getFlyingCardZOrder());
         topCardView->setPosition(parentPos);
         topCardView->release();
 
         const bool won = result.won;
+        const int rewardSlot = result.rewardSlotIndex;
         auto* move = MoveTo::create(cfg.getMatchFlyDuration(), targetParentPos);
-        auto* callback = CallFunc::create([this, won]() {
+        auto* callback = CallFunc::create([this, won, rewardSlot]() {
+            if (rewardSlot >= 0)
+            {
+                this->playRewardCardsAnimation(rewardSlot);
+            }
             finishAnimation(GlobalConfig::getInstance().get("matched"));
             if (won && _setStatus)
             {
@@ -105,9 +106,8 @@ void GameplayPresenter::handleResult(const GameActionResult& result)
     case GameActionType::Draw:
         setInputLocked(true);
         syncTopAreaState(true);
-        _mainArea->updateHighlights(_controller.getHighlightStates());
+        _view->updateHighlights(_controller.getHighlightService().getHighlightStates());
         if (_setStatus) _setStatus(cfg.get("drew"), nullptr);
-        // 抽牌只需要短暂锁输入，等待顶部缩放动画完成即可。
         _host->runAction(Sequence::create(DelayTime::create(cfg.getDrawDelayDuration()),
                                           CallFunc::create([this]() { setInputLocked(false); }),
                                           nullptr));
@@ -122,13 +122,13 @@ void GameplayPresenter::handleResult(const GameActionResult& result)
         syncTopAreaState(false);
 
         auto* cardView = PokerCardView::create(result.card, true);
-        const Vec2 topParentPos = _host->convertToNodeSpace(_topArea->getTopCardWorldPosition());
+        const Vec2 topParentPos = _host->convertToNodeSpace(_view->getTopCardWorldPosition());
         cardView->setPosition(topParentPos);
-        _host->addChild(cardView, 10);
+        _host->addChild(cardView, cfg.getFlyingCardZOrder());
 
-        auto* slotView = _mainArea->getSlotView(result.slotIndex);
-        const Vec2 targetWorldPos = slotView ? slotView->getTopCardWorldPosition() : _topArea->getTopCardWorldPosition();
-        const Vec2 targetParentPos = _host->convertToNodeSpace(targetWorldPos);
+        const Vec2 targetWorldPos = _view->getSlotTopCardWorldPosition(result.slotIndex);
+        const Vec2 targetParentPos = _host->convertToNodeSpace(
+            targetWorldPos == Vec2::ZERO ? _view->getTopCardWorldPosition() : targetWorldPos);
 
         auto* move = MoveTo::create(cfg.getUndoFlyDuration(), targetParentPos);
         auto* callback = CallFunc::create([this]() {
@@ -140,7 +140,7 @@ void GameplayPresenter::handleResult(const GameActionResult& result)
     case GameActionType::UndoDraw:
         setInputLocked(true);
         syncTopAreaState(true);
-        _mainArea->updateHighlights(_controller.getHighlightStates());
+        _view->updateHighlights(_controller.getHighlightService().getHighlightStates());
         setInputLocked(false);
         if (_setStatus) _setStatus(cfg.get("undoDraw"), nullptr);
         break;
@@ -155,41 +155,67 @@ void GameplayPresenter::setInputLocked(bool locked)
     _inputLocked = locked;
 }
 
-// 当前是否因动画等原因锁定输入。
 bool GameplayPresenter::isInputLocked() const
 {
     return _inputLocked;
 }
 
-// 判断某世界坐标是否靠近顶部牌区，供拖拽落点判定。
 bool GameplayPresenter::isNearTopCardArea(const Vec2& worldPos) const
 {
     auto& cfg = GlobalConfig::getInstance();
-    const Rect topCardRect = _topArea->getTopCardWorldRect();
+    const Rect topCardRect = _view->getTopCardWorldRect();
     const float padding = PokerCardView::getCardWidth() * cfg.getDropAreaPaddingRatio();
-    // 拖放判定不要求严格落在牌面内部，额外扩大一圈容错区域。
     return Rect(topCardRect.origin.x - padding,
                 topCardRect.origin.y - padding,
                 topCardRect.size.width + padding * 2,
                 topCardRect.size.height + padding * 2).containsPoint(worldPos);
 }
 
-// 把状态层槽位复制给视图批量刷新。
 void GameplayPresenter::refreshMainArea()
 {
     std::vector<CardSlot> slots;
-    // MainAreaView 目前以批量刷新为主，这里把状态层槽位拷出来交给 View。
     for (int i = 0; i < _state.slotCount(); ++i)
     {
         slots.push_back(_state.getSlot(i));
     }
-    _mainArea->updateAllSlots(slots);
+    _view->updateAllSlots(slots);
 }
 
-// 动画收尾：解锁输入、刷新视图并更新状态文本。
 void GameplayPresenter::finishAnimation(const std::string& statusText)
 {
     refreshViews();
     setInputLocked(false);
     if (_setStatus) _setStatus(statusText, nullptr);
+}
+
+void GameplayPresenter::playRewardCardsAnimation(int rewardSlotIndex)
+{
+    auto& cfg = GlobalConfig::getInstance();
+    const int rewardCount = cfg.getRewardCardsPerBonus();
+
+    const Vec2 rewardWorldPos = _view->getSlotTopCardWorldPosition(rewardSlotIndex);
+    if (rewardWorldPos == Vec2::ZERO) return;
+
+    const Vec2 reserveWorldPos = _view->getReserveDeckWorldPosition();
+    const Vec2 reserveParentPos = _host->convertToNodeSpace(reserveWorldPos);
+
+    for (int i = 0; i < rewardCount; ++i)
+    {
+        auto* rewardCard = PokerCardView::create(PokerCard::RewardCard(), false);
+        const Vec2 rewardParentPos = _host->convertToNodeSpace(rewardWorldPos);
+        rewardCard->setPosition(rewardParentPos);
+        rewardCard->setScale(PokerCardView::getCardScale());
+        _host->addChild(rewardCard, cfg.getFlyingCardZOrder());
+
+        auto* delay = DelayTime::create(i * cfg.getRewardFlyDelay());
+        auto* move = MoveTo::create(cfg.getRewardFlyDuration(), reserveParentPos);
+        auto* remove = RemoveSelf::create();
+        rewardCard->runAction(Sequence::create(delay, move, remove, nullptr));
+    }
+
+    auto* delayAll = DelayTime::create(rewardCount * cfg.getRewardFlyDelay() + cfg.getRewardFlyDuration());
+    auto* addCards = CallFunc::create([this, rewardCount]() {
+        _view->setReserveCount(_state.reserveDeckSize() + rewardCount);
+    });
+    _host->runAction(Sequence::create(delayAll, addCards, nullptr));
 }

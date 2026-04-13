@@ -1,3 +1,12 @@
+/**
+ * @file UndoManager.cpp
+ * @brief 撤销管理器实现。
+ *
+ * 主要功能:
+ *   - pushAction: 添加动作到历史
+ *   - undo/redo: 撤销或重做最近的操作
+ *   - clear: 清空历史记录
+ */
 #include "UndoManager.h"
 
 UndoManager::UndoManager()

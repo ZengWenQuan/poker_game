@@ -1,9 +1,17 @@
+/**
+ * @file CardSlotView.cpp
+ * @brief 卡槽视图实现。
+ *
+ * 主要功能:
+ *   - 展示单个主牌区槽位及其叠放的卡牌
+ *   - 使用 InputDetector 做拖拽和双击判定
+ *   - 显示槽位覆盖关系 (高亮可匹配牌)
+ */
 #include "CardSlotView.h"
 #include "config/GlobalConfig.h"
 
 USING_NS_CC;
 
-// 根据槽位索引创建视图。
 CardSlotView* CardSlotView::create(int slotIndex)
 {
     auto* view = new (std::nothrow) CardSlotView();
@@ -16,7 +24,6 @@ CardSlotView* CardSlotView::create(int slotIndex)
     return nullptr;
 }
 
-// 初始化槽位视图并注册触摸事件。
 bool CardSlotView::initWithSlotIndex(int slotIndex)
 {
     if (!Node::init())
@@ -31,10 +38,9 @@ bool CardSlotView::initWithSlotIndex(int slotIndex)
     auto& cfg = GlobalConfig::getInstance();
 
     setContentSize(Size(PokerCardView::getCardWidth(),
-                        PokerCardView::getCardHeight() + 200.0f));
+                        PokerCardView::getCardHeight() + cfg.getCardSlotExtraHeight()));
     setAnchorPoint(Vec2(0.5f, 0.5f));
 
-    // 触摸事件
     auto* listener = EventListenerTouchOneByOne::create();
     listener->setSwallowTouches(true);
     listener->onTouchBegan = CC_CALLBACK_2(CardSlotView::onTouchBegan, this);
@@ -45,7 +51,6 @@ bool CardSlotView::initWithSlotIndex(int slotIndex)
     return true;
 }
 
-// 按槽位数据重建牌面堆叠。
 void CardSlotView::updateView(const CardSlot& slot)
 {
     clearCardViews();
@@ -54,7 +59,6 @@ void CardSlotView::updateView(const CardSlot& slot)
     float overlapY = cfg.getCardOverlapY();
     const int cardCount = slot.cardCount();
 
-    // 同一槽位内部的非顶牌统一背面朝上，只有顶牌状态由数据层决定。
     for (int i = 0; i < cardCount; ++i)
     {
         const bool isTop = (i == cardCount - 1);
@@ -75,7 +79,6 @@ PokerCardView* CardSlotView::getTopCardView() const
     return _cardViews.back();
 }
 
-// 获取顶牌的世界坐标中心。
 cocos2d::Vec2 CardSlotView::getTopCardWorldPosition() const
 {
     if (_cardViews.empty())
@@ -98,7 +101,6 @@ int CardSlotView::cardCount() const
     return static_cast<int>(_cardViews.size());
 }
 
-// 设置双击回调。
 void CardSlotView::setTapCallback(const TapCallback& cb)
 {
     _onDoubleTap = cb;
@@ -127,7 +129,6 @@ void CardSlotView::setHighlight(bool highlight)
     }
 }
 
-// 将顶牌平滑弹回原位。
 void CardSlotView::animateTopCardBack(cocos2d::CallFunc* callback)
 {
     if (_cardViews.empty()) return;
@@ -137,7 +138,6 @@ void CardSlotView::animateTopCardBack(cocos2d::CallFunc* callback)
 
     topCard->setLocalZOrder(static_cast<int>(_topCardOriginalZOrder));
 
-    // 回弹动画只恢复位置和层级，不修改牌本身的显示状态。
     auto* move = MoveTo::create(cfg.getBounceBackDuration(), _topCardOriginalPos);
     if (callback)
     {
@@ -149,7 +149,6 @@ void CardSlotView::animateTopCardBack(cocos2d::CallFunc* callback)
     }
 }
 
-// 清理并移除当前槽位的所有牌视图。
 void CardSlotView::clearCardViews()
 {
     for (auto* view : _cardViews)
@@ -159,20 +158,17 @@ void CardSlotView::clearCardViews()
     _cardViews.clear();
 }
 
-// 检测世界坐标是否命中顶牌（仅限翻开的顶牌）。
 bool CardSlotView::hitTestTopCard(const cocos2d::Vec2& worldPos)
 {
     if (_cardViews.empty()) return false;
     auto* topCard = _cardViews.back();
     if (!topCard->isFaceUp()) return false;
 
-    // 当前只允许和顶牌交互，命中检测也只看最上面那张。
     Vec2 localPos = topCard->convertToNodeSpace(worldPos);
     Rect cardRect(0, 0, PokerCardView::getCardWidth(), PokerCardView::getCardHeight());
     return cardRect.containsPoint(localPos);
 }
 
-// 触摸开始：仅响应命中顶牌的触摸。
 bool CardSlotView::onTouchBegan(cocos2d::Touch* touch, cocos2d::Event* event)
 {
     if (_cardViews.empty()) return false;
@@ -193,7 +189,6 @@ bool CardSlotView::onTouchBegan(cocos2d::Touch* touch, cocos2d::Event* event)
     return true;
 }
 
-// 触摸移动：超过阈值则进入拖拽并实时更新位置。
 void CardSlotView::onTouchMoved(cocos2d::Touch* touch, cocos2d::Event* event)
 {
     if (!_touchStartedOnTopCard || _cardViews.empty()) return;
@@ -202,16 +197,15 @@ void CardSlotView::onTouchMoved(cocos2d::Touch* touch, cocos2d::Event* event)
 
     if (!_isDragging)
     {
-        // 小范围移动仍按点击处理，超过阈值才切换为拖动。
         Vec2 startLocal = _cardViews.back()->convertToNodeSpace(touch->getStartLocation());
         Vec2 curLocal = _cardViews.back()->convertToNodeSpace(touch->getLocation());
-        float dist = startLocal.distance(curLocal);
-        if (dist < cfg.getDragThresholdPx()) return;
+
+        if (!InputDetector::isDrag(startLocal, curLocal, cfg.getDragThresholdPx())) return;
 
         _isDragging = true;
 
         auto* topCard = _cardViews.back();
-        topCard->setLocalZOrder(1000);
+        topCard->setLocalZOrder(cfg.getDragZOrder());
 
         if (_onDragStart)
         {
@@ -234,7 +228,6 @@ void CardSlotView::onTouchMoved(cocos2d::Touch* touch, cocos2d::Event* event)
     }
 }
 
-// 触摸结束：拖拽则回调结束，非拖拽则做双击判定。
 void CardSlotView::onTouchEnded(cocos2d::Touch* touch, cocos2d::Event* event)
 {
     if (!_touchStartedOnTopCard) return;
@@ -260,26 +253,10 @@ void CardSlotView::onTouchEnded(cocos2d::Touch* touch, cocos2d::Event* event)
     }
     else
     {
-        // 非拖动结束则按双击判定，和旧版单击玩法区分开。
-        auto now = std::chrono::steady_clock::now();
-        bool isDoubleTap = false;
-
-        if (_slotIndexOfLastTap == _slotIndex)
-        {
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - _lastTapTime).count();
-            if (elapsed < cfg.getDoubleClickIntervalMs())
-            {
-                isDoubleTap = true;
-            }
-        }
-
-        _lastTapTime = now;
-        _slotIndexOfLastTap = _slotIndex;
-
-        if (isDoubleTap)
+        // 非拖动结束则按双击判定。
+        if (_inputDetector.isDoubleClick(_slotIndex, cfg.getDoubleClickIntervalMs()))
         {
             if (_onDoubleTap) _onDoubleTap(_slotIndex);
-            _slotIndexOfLastTap = -1;
         }
     }
 }

@@ -1,32 +1,18 @@
+/**
+ * @file CustomLayoutEditor.cpp
+ * @brief 自定义布局编辑器实现。
+ */
 #include "CustomLayoutEditor.h"
 #include "config/GlobalConfig.h"
 #include "logging/GameLogger.h"
+#include "model/CustomLayoutDraft.h"
 #include "view/PokerCardView.h"
+#include "view/UILabelHelper.h"
 #include "json/stringbuffer.h"
 #include "json/writer.h"
-#include <algorithm>
-#include <cctype>
 #include <fstream>
 
 USING_NS_CC;
-
-namespace
-{
-// 计算两个矩形的交叠面积；用于判断牌是否存在有效覆盖关系。
-float computeOverlapArea(const Rect& lhs, const Rect& rhs)
-{
-    // 编辑器只需要粗略判断两张牌是否发生了真实叠压，矩形相交面积足够用了。
-    const float left = std::max(lhs.getMinX(), rhs.getMinX());
-    const float right = std::min(lhs.getMaxX(), rhs.getMaxX());
-    const float bottom = std::max(lhs.getMinY(), rhs.getMinY());
-    const float top = std::min(lhs.getMaxY(), rhs.getMaxY());
-    if (right <= left || top <= bottom)
-    {
-        return 0.0f;
-    }
-    return (right - left) * (top - bottom);
-}
-}
 
 CustomLayoutEditor::CustomLayoutEditor(Node* host)
     : _host(host)
@@ -36,6 +22,7 @@ CustomLayoutEditor::CustomLayoutEditor(Node* host)
 CustomLayoutEditor::~CustomLayoutEditor()
 {
     hideSaveDialog();
+    hideConfirmDialog();
     clearEditor();
 }
 
@@ -54,41 +41,106 @@ bool CustomLayoutEditor::isActive() const
     return _active;
 }
 
-// 进入自定义编辑模式：生成编辑层与托盘牌组。
 void CustomLayoutEditor::enter()
 {
     if (_active) return;
     _active = true;
-    buildEditorDeckView();
+    startNewLayout();
     if (_onStatus) _onStatus(GlobalConfig::getInstance().get("customModeOn"));
     GAME_LOG_INFO("Entered custom layout mode");
 }
 
-// 退出编辑模式：关闭对话框并移除编辑层。
 void CustomLayoutEditor::exit()
 {
     if (!_active) return;
     hideSaveDialog();
+    hideConfirmDialog();
     clearEditor();
+    _isDirty = false;
+    _isNewLayout = true;
+    _currentLayoutPath.clear();
+    _currentLayoutName.clear();
+    _pendingContinueAction = nullptr;
     _active = false;
     if (_onStatus) _onStatus(GlobalConfig::getInstance().get("customModeOff"));
     GAME_LOG_INFO("Exited custom layout mode");
 }
 
-void CustomLayoutEditor::toggle()
+void CustomLayoutEditor::startNewLayout()
 {
-    if (_active)
+    if (!_active) return;
+    clearEditor();
+    buildEditorDeckView();
+    _isDirty = false;
+    _isNewLayout = true;
+    _currentLayoutPath.clear();
+    _currentLayoutName = GlobalConfig::getInstance().get("newLayout");
+}
+
+bool CustomLayoutEditor::isEditingNewLayout() const
+{
+    return _isNewLayout;
+}
+
+const std::string& CustomLayoutEditor::getCurrentLayoutName() const
+{
+    return _currentLayoutName;
+}
+
+void CustomLayoutEditor::loadLayout(const LayoutConfig& layout,
+                                    const std::string& relativePath,
+                                    const std::string& layoutName)
+{
+    if (!_active || !_editorLayer) return;
+    const auto& slots = layout.getSlots();
+    if (slots.empty()) return;
+
+    clearEditor();
+    buildEditorDeckView();
+
+    std::vector<int> rewardIndices;
+    std::vector<int> normalIndices;
+    for (int i = 0; i < static_cast<int>(_cards.size()); ++i)
     {
-        exit();
-        return;
+        if (_cards[i].isReward()) rewardIndices.push_back(i);
+        else normalIndices.push_back(i);
     }
-    enter();
+    auto allocCardIndex = [&](bool needReward) -> int {
+        std::vector<int>& pool = needReward ? rewardIndices : normalIndices;
+        if (pool.empty()) return -1;
+        int idx = pool.back();
+        pool.pop_back();
+        return idx;
+    };
+
+    auto& cfg = GlobalConfig::getInstance();
+
+    for (const auto& slot : slots)
+    {
+        int cardIndex = allocCardIndex(slot.isReward);
+        if (cardIndex < 0 || cardIndex >= static_cast<int>(_cardViews.size())) continue;
+
+        cocos2d::Vec2 scenePos = LayoutConfig::resolveSlotPosition(slot,
+                                                                   layout.usePileCenterOrigin(),
+                                                                   layout.getMainPileCount(),
+                                                                   cfg.getDesignWidth(),
+                                                                   cfg.getDesignHeight());
+        _cardViews[cardIndex]->setPosition(scenePos);
+        _cardInMainArea[cardIndex] = true;
+        bringCardToFront(cardIndex);
+    }
+
+    _isDirty = false;
+    _isNewLayout = false;
+    _currentLayoutPath = relativePath;
+    _currentLayoutName = layoutName;
 }
 
 std::vector<PokerCard> CustomLayoutEditor::buildEditorDeck() const
 {
+    auto& cfg = GlobalConfig::getInstance();
     std::vector<PokerCard> deck;
-    deck.reserve(52);
+    deck.reserve(52 + cfg.getEditorRewardCardCount());
 
     const CardSuit suits[] = {
         CardSuit::Spade,
@@ -97,7 +149,6 @@ std::vector<PokerCard> CustomLayoutEditor::buildEditorDeck() const
         CardSuit::Diamond
     };
 
-    // 编辑器固定提供一整副牌，便于自由摆放和辨认层级关系。
     for (CardSuit suit : suits)
     {
         for (int rank = static_cast<int>(CardRank::Ace); rank <= static_cast<int>(CardRank::King); ++rank)
@@ -106,35 +157,59 @@ std::vector<PokerCard> CustomLayoutEditor::buildEditorDeck() const
         }
     }
 
+    for (int i = 0; i < cfg.getEditorRewardCardCount(); ++i)
+    {
+        deck.push_back(PokerCard::RewardCard());
+    }
+
     return deck;
 }
 
 Rect CustomLayoutEditor::getCustomTrayRect() const
 {
-    // 下方托盘区：未使用的牌停放在这里。
+    auto& cfg = GlobalConfig::getInstance();
     const auto visibleSize = Director::getInstance()->getVisibleSize();
-    return Rect(60.0f, 40.0f, visibleSize.width - 120.0f, visibleSize.height * 0.28f);
+    float marginLeft = cfg.getEditorFloat("trayMarginLeft", 60.0f);
+    float marginBottom = cfg.getEditorFloat("trayMarginBottom", 40.0f);
+    float widthAdjust = cfg.getEditorFloat("trayWidthAdjust", -120.0f);
+    float heightRatio = cfg.getEditorFloat("trayHeightRatio", 0.28f);
+    return Rect(marginLeft, marginBottom, visibleSize.width + widthAdjust, visibleSize.height * heightRatio);
 }
 
 Rect CustomLayoutEditor::getCustomMainAreaRect() const
 {
-    // 中上方主编辑区：拖到这里的牌会被视为布局有效内容。
+    auto& cfg = GlobalConfig::getInstance();
     const auto visibleSize = Director::getInstance()->getVisibleSize();
-    return Rect(80.0f, visibleSize.height * 0.22f, visibleSize.width - 160.0f, visibleSize.height * 0.62f);
+    float marginLeft = cfg.getEditorFloat("mainAreaMarginLeft", 80.0f);
+    float bottomRatio = cfg.getEditorFloat("mainAreaBottomRatio", 0.22f);
+    float widthAdjust = cfg.getEditorFloat("mainAreaWidthAdjust", -160.0f);
+    float heightRatio = cfg.getEditorFloat("mainAreaHeightRatio", 0.62f);
+    return Rect(marginLeft, visibleSize.height * bottomRatio, visibleSize.width + widthAdjust, visibleSize.height * heightRatio);
+}
+
+Vec2 CustomLayoutEditor::getCustomMainAreaGridStep() const
+{
+    auto& cfg = GlobalConfig::getInstance();
+    const Rect mainAreaRect = getCustomMainAreaRect();
+    const int divisions = cfg.getEditorInt("mainAreaGridDivisions", 100);
+    return Vec2(mainAreaRect.size.width / static_cast<float>(divisions),
+                mainAreaRect.size.height / static_cast<float>(divisions));
 }
 
 Vec2 CustomLayoutEditor::getCustomTrayPosition(int index) const
 {
-    // index: 第几张牌（0 起），用于排列托盘网格。
+    auto& cfg = GlobalConfig::getInstance();
     const Rect trayRect = getCustomTrayRect();
-    const int columns = 13;
+    const int columns = cfg.getEditorInt("trayColumns", 13);
     const int row = index / columns;
     const int col = index % columns;
 
     const float cardWidth = PokerCardView::getCardWidth();
     const float cardHeight = PokerCardView::getCardHeight();
-    const float spacingX = std::min(cardWidth * 1.05f, (trayRect.size.width - cardWidth) / 12.0f);
-    const float spacingY = std::min(cardHeight * 1.02f, (trayRect.size.height - cardHeight) / 3.0f);
+    const float spacingXRatio = cfg.getEditorFloat("traySpacingXRatio", 1.05f);
+    const float spacingYRatio = cfg.getEditorFloat("traySpacingYRatio", 1.02f);
+    const float spacingX = std::min(cardWidth * spacingXRatio, (trayRect.size.width - cardWidth) / 12.0f);
+    const float spacingY = std::min(cardHeight * spacingYRatio, (trayRect.size.height - cardHeight) / 3.0f);
     const float startX = trayRect.getMinX() + cardWidth * 0.5f;
     const float startY = trayRect.getMinY() + cardHeight * 0.5f;
 
@@ -142,28 +217,49 @@ Vec2 CustomLayoutEditor::getCustomTrayPosition(int index) const
                 startY + spacingY * static_cast<float>(row));
 }
 
+Vec2 CustomLayoutEditor::snapToMainAreaGrid(const Vec2& position) const
+{
+    const Rect mainAreaRect = getCustomMainAreaRect();
+    const Vec2 step = getCustomMainAreaGridStep();
+    const float halfCardWidth = PokerCardView::getCardWidth() * 0.5f;
+    const float halfCardHeight = PokerCardView::getCardHeight() * 0.5f;
+
+    const float minX = mainAreaRect.getMinX() + halfCardWidth;
+    const float maxX = mainAreaRect.getMaxX() - halfCardWidth;
+    const float minY = mainAreaRect.getMinY() + halfCardHeight;
+    const float maxY = mainAreaRect.getMaxY() - halfCardHeight;
+
+    const float clampedX = clampf(position.x, minX, maxX);
+    const float clampedY = clampf(position.y, minY, maxY);
+    const float snappedX = minX + std::round((clampedX - minX) / step.x) * step.x;
+    const float snappedY = minY + std::round((clampedY - minY) / step.y) * step.y;
+
+    return Vec2(clampf(snappedX, minX, maxX),
+                clampf(snappedY, minY, maxY));
+}
+
 void CustomLayoutEditor::buildEditorDeckView()
 {
     clearEditor();
 
+    auto& cfg = GlobalConfig::getInstance();
     const auto visibleSize = Director::getInstance()->getVisibleSize();
     const auto origin = Director::getInstance()->getVisibleOrigin();
 
-    // 编辑层本身透明，只通过半透明遮罩把主编辑区和托盘区区分开。
     _editorLayer = LayerColor::create(Color4B(0, 0, 0, 0), visibleSize.width, visibleSize.height);
     _editorLayer->setIgnoreAnchorPointForPosition(false);
     _editorLayer->setAnchorPoint(Vec2::ZERO);
     _editorLayer->setPosition(origin);
     _host->addChild(_editorLayer, 7);
 
-    auto* mainAreaMask = LayerColor::create(Color4B(255, 255, 255, 18),
+    auto* mainAreaMask = LayerColor::create(cfg.getColor4B("editorMainAreaMask"),
                                             getCustomMainAreaRect().size.width,
                                             getCustomMainAreaRect().size.height);
     mainAreaMask->setAnchorPoint(Vec2::ZERO);
     mainAreaMask->setPosition(getCustomMainAreaRect().origin);
     _editorLayer->addChild(mainAreaMask, 0);
 
-    auto* trayMask = LayerColor::create(Color4B(0, 0, 0, 60),
+    auto* trayMask = LayerColor::create(cfg.getColor4B("editorTrayMask"),
                                         getCustomTrayRect().size.width,
                                         getCustomTrayRect().size.height);
     trayMask->setAnchorPoint(Vec2::ZERO);
@@ -186,7 +282,6 @@ void CustomLayoutEditor::buildEditorDeckView()
         _editorLayer->addChild(cardView, i + 1);
         _cardViews.push_back(cardView);
 
-        // 每张牌都挂独立触摸监听，支持自由拖放和叠层调整。
         auto* listener = EventListenerTouchOneByOne::create();
         listener->setSwallowTouches(true);
         listener->onTouchBegan = [this, i](Touch* touch, Event* event) {
@@ -220,17 +315,45 @@ void CustomLayoutEditor::buildEditorDeckView()
             if (getCustomMainAreaRect().containsPoint(pos))
             {
                 _cardInMainArea[i] = true;
+                _cardViews[i]->setPosition(snapToMainAreaGrid(pos));
             }
             else
             {
                 _cardInMainArea[i] = false;
                 _cardViews[i]->setPosition(_trayPositions[i]);
             }
+            markDirty();
             _dragCardIndex = -1;
         };
         listener->onTouchCancelled = listener->onTouchEnded;
         _host->getEventDispatcher()->addEventListenerWithSceneGraphPriority(listener, cardView);
     }
+
+    auto* mouseListener = EventListenerMouse::create();
+    mouseListener->onMouseUp = [this](EventMouse* event) {
+        if (!_active || _editorLayer == nullptr) return;
+        if (event->getMouseButton() != EventMouse::MouseButton::BUTTON_RIGHT) return;
+
+        const Vec2 worldPos = event->getLocationInView();
+        for (int i = static_cast<int>(_cardViews.size()) - 1; i >= 0; --i)
+        {
+            auto* cardView = _cardViews[i];
+            if (cardView == nullptr || !cardView->isVisible()) continue;
+            if (!_cardInMainArea[i]) continue;
+
+            const Vec2 localPos = cardView->convertToNodeSpace(worldPos);
+            const Rect bounds(0.0f, 0.0f, PokerCardView::getCardWidth(), PokerCardView::getCardHeight());
+            if (bounds.containsPoint(localPos))
+            {
+                _cardInMainArea[i] = false;
+                cardView->setPosition(_trayPositions[i]);
+                markDirty();
+                break;
+            }
+        }
+    };
+    _host->getEventDispatcher()->addEventListenerWithFixedPriority(mouseListener, -1);
+    _mouseListener = mouseListener;
 }
 
 void CustomLayoutEditor::clearEditor()
@@ -241,6 +364,12 @@ void CustomLayoutEditor::clearEditor()
     _cardInMainArea.clear();
     _dragCardIndex = -1;
 
+    if (_mouseListener)
+    {
+        _host->getEventDispatcher()->removeEventListener(_mouseListener);
+        _mouseListener = nullptr;
+    }
+
     if (_editorLayer)
     {
         _editorLayer->removeFromParent();
@@ -248,7 +377,11 @@ void CustomLayoutEditor::clearEditor()
     }
 }
 
-// 把指定牌提升到最前层，避免被其他牌遮挡。
+void CustomLayoutEditor::markDirty()
+{
+    _isDirty = true;
+}
+
 void CustomLayoutEditor::bringCardToFront(int cardIndex)
 {
     if (cardIndex < 0 || cardIndex >= static_cast<int>(_cardViews.size())) return;
@@ -256,40 +389,48 @@ void CustomLayoutEditor::bringCardToFront(int cardIndex)
     _cardViews[cardIndex]->setLocalZOrder(_zCounter);
 }
 
-// 弹出保存对话框，允许输入布局名称并确认写入。
 void CustomLayoutEditor::showSaveDialog()
 {
     if (!_active) return;
     hideSaveDialog();
+    hideConfirmDialog();
 
-    auto& theme = GlobalConfig::getInstance();
+    auto& cfg = GlobalConfig::getInstance();
     auto& strings = GlobalConfig::getInstance();
     const auto visibleSize = Director::getInstance()->getVisibleSize();
     const auto origin = Director::getInstance()->getVisibleOrigin();
 
-    _saveDialogLayer = LayerColor::create(Color4B(0, 0, 0, 150), visibleSize.width, visibleSize.height);
+    _saveDialogLayer = LayerColor::create(cfg.getColor4B("overlayMask"), visibleSize.width, visibleSize.height);
     _saveDialogLayer->setPosition(origin);
     _host->addChild(_saveDialogLayer, 20);
 
-    auto* panel = LayerColor::create(Color4B(30, 45, 32, 235), 520.0f, 220.0f);
+    const Size panelSize = cfg.getDialogSize("saveDialog", "panelSize", Size(520, 220));
+    auto* panel = LayerColor::create(cfg.getColor4B("dialogPanelAlt"), panelSize.width, panelSize.height);
     panel->setIgnoreAnchorPointForPosition(false);
     panel->setAnchorPoint(Vec2(0.5f, 0.5f));
     panel->setPosition(origin + visibleSize / 2.0f);
     _saveDialogLayer->addChild(panel);
 
-    auto* title = Label::createWithSystemFont(strings.get("saveLayoutTitle"), theme.getFont(), theme.getFontSize("levelTitle"));
-    title->setPosition(Vec2(260.0f, 175.0f));
+    const Vec2 titlePos = cfg.getDialogVec2("saveDialog", "titlePosition", Vec2(260, 175));
+    auto* title = UiLabelHelper::create(strings.get("saveLayoutTitle"), cfg.getFont(), cfg.getFontSize("levelTitle"));
+    title->setPosition(titlePos);
     panel->addChild(title);
 
-    _saveNameEditBox = ui::EditBox::create(Size(360.0f, 56.0f), ui::Scale9Sprite::create());
-    _saveNameEditBox->setPosition(Vec2(260.0f, 110.0f));
+    const Size editBoxSize = cfg.getDialogSize("saveDialog", "editBoxSize", Size(360, 56));
+    const Vec2 editBoxPos = cfg.getDialogVec2("saveDialog", "editBoxPosition", Vec2(260, 110));
+    const int maxLength = cfg.getDialogInt("saveDialog", "editBoxMaxLength", 48);
+    _saveNameEditBox = ui::EditBox::create(editBoxSize, ui::Scale9Sprite::create());
+    _saveNameEditBox->setPosition(editBoxPos);
     _saveNameEditBox->setPlaceHolder(strings.get("saveLayoutPlaceholder").c_str());
-    _saveNameEditBox->setMaxLength(48);
-    _saveNameEditBox->setFontColor(Color3B::WHITE);
+    _saveNameEditBox->setMaxLength(maxLength);
+    _saveNameEditBox->setFont(cfg.getFont().c_str(), static_cast<int>(cfg.getFontSize("levelBtn")));
+    _saveNameEditBox->setFontColor(cfg.getColor3B("buttonText"));
+    _saveNameEditBox->setPlaceholderFont(cfg.getFont().c_str(), static_cast<int>(cfg.getFontSize("levelBtn")));
     _saveNameEditBox->setInputMode(ui::EditBox::InputMode::SINGLE_LINE);
+    _saveNameEditBox->setText(_isNewLayout ? "" : _currentLayoutName.c_str());
     panel->addChild(_saveNameEditBox);
 
-    auto* confirmLabel = Label::createWithSystemFont(strings.get("saveLayoutConfirm"), theme.getFont(), theme.getFontSize("levelBtn"));
+    auto* confirmLabel = UiLabelHelper::create(strings.get("saveLayoutConfirm"), cfg.getFont(), cfg.getFontSize("levelBtn"));
     auto* confirmItem = MenuItemLabel::create(confirmLabel, [this](Ref*) {
         const std::string layoutName = _saveNameEditBox ? _saveNameEditBox->getText() : "";
         if (layoutName.empty())
@@ -297,15 +438,19 @@ void CustomLayoutEditor::showSaveDialog()
             if (_onStatus) _onStatus(GlobalConfig::getInstance().get("saveLayoutEmpty"));
             return;
         }
-        saveLayout(layoutName);
+        saveLayoutToPath(CustomLayoutDraft::buildSavePath(_currentLayoutPath, _isNewLayout, layoutName),
+                         layoutName);
     });
-    confirmItem->setPosition(Vec2(180.0f, 42.0f));
+    const Vec2 confirmPos = cfg.getDialogVec2("saveDialog", "confirmPosition", Vec2(180, 42));
+    confirmItem->setPosition(confirmPos);
 
-    auto* cancelLabel = Label::createWithSystemFont(strings.get("saveLayoutCancel"), theme.getFont(), theme.getFontSize("levelBtn"));
+    auto* cancelLabel = UiLabelHelper::create(strings.get("saveLayoutCancel"), cfg.getFont(), cfg.getFontSize("levelBtn"));
     auto* cancelItem = MenuItemLabel::create(cancelLabel, [this](Ref*) {
+        _pendingContinueAction = nullptr;
         hideSaveDialog();
     });
-    cancelItem->setPosition(Vec2(340.0f, 42.0f));
+    const Vec2 cancelPos = cfg.getDialogVec2("saveDialog", "cancelPosition", Vec2(340, 42));
+    cancelItem->setPosition(cancelPos);
 
     auto* menu = Menu::create(confirmItem, cancelItem, nullptr);
     menu->setPosition(Vec2::ZERO);
@@ -322,163 +467,140 @@ void CustomLayoutEditor::hideSaveDialog()
     }
 }
 
-void CustomLayoutEditor::rebuildLayoutMetadata(std::vector<SlotLayout>& slots,
-                                               const std::vector<int>& cardIndices) const
+void CustomLayoutEditor::saveCurrentLayout()
 {
-    // 根据牌的摆放位置和 zOrder 反推 layer 与 covers，确保导出的布局符合运行时遮挡规则。
-    const float cardWidth = PokerCardView::getCardWidth();
-    const float cardHeight = PokerCardView::getCardHeight();
+    if (!_active) return;
+    _isNewLayout ? showSaveDialog()
+                 : saveLayoutToPath(CustomLayoutDraft::buildSavePath(_currentLayoutPath,
+                                                                    _isNewLayout,
+                                                                    _currentLayoutName),
+                                    _currentLayoutName);
+}
 
-    std::vector<Rect> bounds;
-    std::vector<int> zOrders;
-    bounds.reserve(cardIndices.size());
-    zOrders.reserve(cardIndices.size());
-
-    // 保存布局前，需要从编辑器中的摆放结果反推出：
-    // 1. 每张牌的层级 layer
-    // 2. 相邻层之间的 covers 关系
-    for (int cardIndex : cardIndices)
+void CustomLayoutEditor::confirmSaveBeforeAction(const std::function<void()>& onContinue)
+{
+    if (!_active)
     {
-        const Vec2 pos = _cardViews[cardIndex]->getPosition();
-        bounds.emplace_back(pos.x - cardWidth * 0.5f,
-                            pos.y - cardHeight * 0.5f,
-                            cardWidth,
-                            cardHeight);
-        zOrders.push_back(_cardViews[cardIndex]->getLocalZOrder());
+        if (onContinue) onContinue();
+        return;
     }
 
-    std::vector<std::vector<int>> overlappingParents(slots.size());
-    for (int lower = 0; lower < static_cast<int>(slots.size()); ++lower)
+    if (!_isDirty)
     {
-        for (int upper = 0; upper < static_cast<int>(slots.size()); ++upper)
-        {
-            if (lower == upper || zOrders[upper] <= zOrders[lower]) continue;
-            if (computeOverlapArea(bounds[lower], bounds[upper]) > 1.0f)
-            {
-                overlappingParents[lower].push_back(upper);
-            }
-        }
+        if (onContinue) onContinue();
+        return;
     }
 
-    std::vector<int> order(slots.size());
-    for (int i = 0; i < static_cast<int>(order.size()); ++i)
-    {
-        order[i] = i;
-    }
-    // 先按 zOrder 从上往下求 layer，保证更高层的牌先确定。
-    std::sort(order.begin(), order.end(), [&](int lhs, int rhs) {
-        return zOrders[lhs] > zOrders[rhs];
+    hideSaveDialog();
+    hideConfirmDialog();
+    _pendingContinueAction = onContinue;
+
+    auto& cfg = GlobalConfig::getInstance();
+    auto& strings = GlobalConfig::getInstance();
+    const auto visibleSize = Director::getInstance()->getVisibleSize();
+    const auto origin = Director::getInstance()->getVisibleOrigin();
+
+    _confirmDialogLayer = LayerColor::create(cfg.getColor4B("overlayMask"), visibleSize.width, visibleSize.height);
+    _confirmDialogLayer->setPosition(origin);
+    _host->addChild(_confirmDialogLayer, 20);
+
+    const Size panelSize = cfg.getDialogSize("confirmDialog", "panelSize", Size(620, 240));
+    auto* panel = LayerColor::create(cfg.getColor4B("dialogPanelAlt"), panelSize.width, panelSize.height);
+    panel->setIgnoreAnchorPointForPosition(false);
+    panel->setAnchorPoint(Vec2(0.5f, 0.5f));
+    panel->setPosition(origin + visibleSize / 2.0f);
+    _confirmDialogLayer->addChild(panel);
+
+    const Vec2 titlePos = cfg.getDialogVec2("confirmDialog", "titlePosition", Vec2(310, 185));
+    auto* title = UiLabelHelper::create(strings.get("saveBeforeSwitchTitle"),
+                                        cfg.getFont(),
+                                        cfg.getFontSize("levelTitle"));
+    title->setPosition(titlePos);
+    panel->addChild(title);
+
+    const Vec2 msgPos = cfg.getDialogVec2("confirmDialog", "messagePosition", Vec2(310, 118));
+    auto* message = UiLabelHelper::create(strings.get("saveBeforeSwitchMessage"),
+                                          cfg.getFont(),
+                                          cfg.getFontSize("levelBtn"));
+    message->setPosition(msgPos);
+    panel->addChild(message);
+
+    auto* saveLabel = UiLabelHelper::create(strings.get("saveBeforeSwitchSave"),
+                                            cfg.getFont(),
+                                            cfg.getFontSize("levelBtn"));
+    auto* saveItem = MenuItemLabel::create(saveLabel, [this](Ref*) {
+        hideConfirmDialog();
+        saveCurrentLayout();
     });
+    const Vec2 savePos = cfg.getDialogVec2("confirmDialog", "savePosition", Vec2(160, 50));
+    saveItem->setPosition(savePos);
 
-    for (int index : order)
-    {
-        int layer = 0;
-        for (int parentIndex : overlappingParents[index])
-        {
-            layer = std::max(layer, slots[parentIndex].layer + 1);
-        }
-        slots[index].layer = layer;
-    }
+    auto* discardLabel = UiLabelHelper::create(strings.get("saveBeforeSwitchDiscard"),
+                                               cfg.getFont(),
+                                               cfg.getFontSize("levelBtn"));
+    auto* discardItem = MenuItemLabel::create(discardLabel, [this](Ref*) {
+        auto onContinue = _pendingContinueAction;
+        _pendingContinueAction = nullptr;
+        hideConfirmDialog();
+        if (onContinue) onContinue();
+    });
+    const Vec2 discardPos = cfg.getDialogVec2("confirmDialog", "discardPosition", Vec2(310, 50));
+    discardItem->setPosition(discardPos);
 
-    for (auto& slot : slots)
-    {
-        slot.covers.clear();
-    }
+    auto* cancelLabel = UiLabelHelper::create(strings.get("saveLayoutCancel"),
+                                              cfg.getFont(),
+                                              cfg.getFontSize("levelBtn"));
+    auto* cancelItem = MenuItemLabel::create(cancelLabel, [this](Ref*) {
+        _pendingContinueAction = nullptr;
+        hideConfirmDialog();
+    });
+    const Vec2 cancelPos = cfg.getDialogVec2("confirmDialog", "cancelPosition", Vec2(460, 50));
+    cancelItem->setPosition(cancelPos);
 
-    for (int lower = 0; lower < static_cast<int>(slots.size()); ++lower)
+    auto* menu = Menu::create(saveItem, discardItem, cancelItem, nullptr);
+    menu->setPosition(Vec2::ZERO);
+    panel->addChild(menu);
+}
+
+void CustomLayoutEditor::hideConfirmDialog()
+{
+    if (_confirmDialogLayer)
     {
-        for (int upper : overlappingParents[lower])
-        {
-            if (slots[upper].layer == slots[lower].layer - 1)
-            {
-                slots[lower].covers.push_back(slots[upper].id);
-            }
-        }
+        _confirmDialogLayer->removeFromParent();
+        _confirmDialogLayer = nullptr;
     }
 }
 
-std::string CustomLayoutEditor::sanitizeLayoutFileName(const std::string& rawName)
+void CustomLayoutEditor::saveLayoutToPath(const std::string& relativePath, const std::string& layoutName)
 {
-    // 保存到本地文件系统前，把不安全字符统一替换成下划线。
-    std::string result;
-    result.reserve(rawName.size());
-    for (unsigned char ch : rawName)
-    {
-        if (ch == '/' || ch == '\\' || ch == ':' || ch == '*' || ch == '?' ||
-            ch == '"' || ch == '<' || ch == '>' || ch == '|')
-        {
-            result.push_back('_');
-        }
-        else if (std::isspace(ch))
-        {
-            result.push_back('_');
-        }
-        else
-        {
-            result.push_back(static_cast<char>(ch));
-        }
-    }
+    std::vector<CustomLayoutDraftCard> draftCards;
+    draftCards.reserve(_cardViews.size());
 
-    while (!result.empty() && result.front() == '_')
-    {
-        result.erase(result.begin());
-    }
-    while (!result.empty() && result.back() == '_')
-    {
-        result.pop_back();
-    }
-
-    if (result.empty())
-    {
-        result = "custom_layout";
-    }
-    return result;
-}
-
-void CustomLayoutEditor::saveLayout(const std::string& layoutName)
-{
-    std::vector<int> cardIndices;
-    // 只保存被拖入主编辑区的牌；托盘区里的牌视为未参与布局。
     for (int i = 0; i < static_cast<int>(_cardViews.size()); ++i)
     {
         if (_cardInMainArea[i])
         {
-            cardIndices.push_back(i);
+            CustomLayoutDraftCard draftCard;
+            draftCard.position = _cardViews[i]->getPosition();
+            draftCard.zOrder = _cardViews[i]->getLocalZOrder();
+            draftCard.isReward = _cards[i].isReward();
+            draftCards.push_back(draftCard);
         }
     }
 
-    if (cardIndices.empty())
+    auto& cfg = GlobalConfig::getInstance();
+    const std::vector<SlotLayout> slots = CustomLayoutDraft::buildSlots(draftCards,
+                                                                        PokerCardView::getCardWidth(),
+                                                                        PokerCardView::getCardHeight(),
+                                                                        cfg.getDesignWidth(),
+                                                                        cfg.getDesignHeight());
+
+    if (CustomLayoutDraft::hasUncoveredRewardCard(slots))
     {
-        if (_onStatus) _onStatus(GlobalConfig::getInstance().get("saveLayoutFail"));
+        if (_onStatus) _onStatus(cfg.get("rewardCardMustBeCovered"));
         return;
     }
 
-    std::vector<SlotLayout> slots;
-    slots.reserve(cardIndices.size());
-
-    const float centerX = GlobalConfig::getInstance().getDesignWidth() * 0.5f;
-    const float centerY = GlobalConfig::getInstance().getDesignHeight() * 0.5f;
-
-    // 编辑器内部位置是场景坐标，这里转换成以主牌区中心为原点的局部坐标，
-    // 以便和运行时布局解析逻辑保持一致。
-    for (int i = 0; i < static_cast<int>(cardIndices.size()); ++i)
-    {
-        const int cardIndex = cardIndices[i];
-        const Vec2 pos = _cardViews[cardIndex]->getPosition();
-
-        SlotLayout slot;
-        slot.id = i;
-        slot.pileIndex = 0;
-        slot.rotation = 0.0f;
-        slot.layer = 0;
-        slot.x = pos.x - centerX;
-        slot.y = pos.y - centerY;
-        slots.push_back(slot);
-    }
-
-    rebuildLayoutMetadata(slots, cardIndices);
-
-    // 输出完整布局 JSON，供运行时和布局列表直接复用。
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     writer.StartObject();
@@ -505,6 +627,8 @@ void CustomLayoutEditor::saveLayout(const std::string& layoutName)
         writer.Int(slot.layer);
         writer.Key("rotation");
         writer.Double(slot.rotation);
+        writer.Key("reward");
+        writer.Bool(slot.isReward);
         writer.Key("covers");
         writer.StartArray();
         for (int parentId : slot.covers)
@@ -518,8 +642,6 @@ void CustomLayoutEditor::saveLayout(const std::string& layoutName)
     writer.EndObject();
 
     auto* fileUtils = FileUtils::getInstance();
-    const std::string fileName = sanitizeLayoutFileName(layoutName) + ".json";
-    const std::string relativePath = "layouts/" + fileName;
     const std::string fullPath = fileUtils->getWritablePath() + relativePath;
     fileUtils->createDirectory(fileUtils->getWritablePath() + "layouts");
 
@@ -539,7 +661,17 @@ void CustomLayoutEditor::saveLayout(const std::string& layoutName)
                   fullPath.c_str(),
                   static_cast<int>(slots.size()));
 
+    _isDirty = false;
+    _isNewLayout = false;
+    _currentLayoutPath = relativePath;
+    _currentLayoutName = layoutName;
     hideSaveDialog();
-    exit();
     if (_onSaved) _onSaved(relativePath, layoutName);
+
+    auto onContinue = _pendingContinueAction;
+    _pendingContinueAction = nullptr;
+    if (onContinue)
+    {
+        onContinue();
+    }
 }

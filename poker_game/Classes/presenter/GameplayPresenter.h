@@ -1,12 +1,20 @@
+/**
+ * @file GameplayPresenter.h
+ * @brief 游戏玩法流程协调头文件。
+ *
+ * 主要功能:
+ *   - 连接 GameController/GameState 与 IGameplayView
+ *   - 管理动画播放、输入锁、胜利检测
+ *   - 通过 IGameplayView 接口操作视图，不直接依赖具体 View 类
+ */
 #ifndef POKER_GAME_GAMEPLAY_PRESENTER_H
 #define POKER_GAME_GAMEPLAY_PRESENTER_H
 
 #include "cocos2d.h"
 #include "controller/GameController.h"
+#include "presenter/IGameplayView.h"
 #include <functional>
 
-class MainAreaView;
-class TopAreaView;
 class GameState;
 
 // Presenter：连接 GameController/GameState 与视图层，触发动画和 UI 更新。
@@ -15,12 +23,11 @@ class GameplayPresenter
 public:
     using StatusCallback = std::function<void(const std::string&, const cocos2d::Color4B*)>;
 
-    // Presenter 负责把 Controller/State 的结果翻译成具体界面刷新和动画。
-    // host: 动画挂载父节点；mainArea/topArea: 视图组件；
+    // Presenter 通过 IGameplayView 接口操作视图，不依赖具体 View 类型。
+    // host: 动画挂载父节点；view: 视图抽象接口；
     // controller/state: 业务逻辑入口与数据。
     GameplayPresenter(cocos2d::Node* host,
-                      MainAreaView* mainArea,
-                      TopAreaView* topArea,
+                      IGameplayView* view,
                       GameController& controller,
                       GameState& state);
 
@@ -49,10 +56,11 @@ private:
     // 动画完成后的收尾，更新状态文本。
     // statusText: 需要展示的提示。
     void finishAnimation(const std::string& statusText);
+    // 奖励牌飞牌动画：从奖励牌位置飞出底牌依次飞到底牌堆。
+    void playRewardCardsAnimation(int rewardSlotIndex);
 
     cocos2d::Node* _host;        // 动画挂载宿主，通常是 GameScene
-    MainAreaView* _mainArea;     // 主牌区视图
-    TopAreaView* _topArea;       // 顶部牌区视图
+    IGameplayView* _view;        // 视图抽象接口
     GameController& _controller; // 流程控制器
     GameState& _state;           // 数据状态
     StatusCallback _setStatus;   // 状态栏输出回调

@@ -1,3 +1,12 @@
+/**
+ * @file MainAreaView.h
+ * @brief 主牌区视图头文件。
+ *
+ * 主要功能:
+ *   - 管理多个 CardSlotView
+ *   - bindController: 绑定控制器
+ *   - syncFrom: 从 GameState 同步卡槽数据
+ */
 #ifndef POKER_GAME_MAIN_AREA_VIEW_H
 #define POKER_GAME_MAIN_AREA_VIEW_H
 

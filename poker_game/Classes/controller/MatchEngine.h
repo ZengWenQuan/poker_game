@@ -1,3 +1,11 @@
+/**
+ * @file MatchEngine.h
+ * @brief 匹配规则引擎头文件。
+ *
+ * 主要功能:
+ *   - canMatch(a, b): 两张牌是否可匹配
+ *   - findCoveredBy: 查找覆盖关系
+ */
 #ifndef POKER_GAME_MATCH_ENGINE_H
 #define POKER_GAME_MATCH_ENGINE_H
 

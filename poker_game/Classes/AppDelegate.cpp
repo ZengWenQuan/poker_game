@@ -22,6 +22,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ****************************************************************************/
 
+/**
+ * @file AppDelegate.cpp
+ * @brief Cocos2d-x 应用入口。
+ *
+ * 主要功能:
+ *   - 初始化 OpenGL 视图和应用配置
+ *   - 创建并运行游戏主场景 (GameScene)
+ */
 #include "AppDelegate.h"
 #include "GameScene.h"
 #include "config/GlobalConfig.h"
@@ -100,11 +108,9 @@ bool AppDelegate::applicationDidFinishLaunching() {
                   PokerCardView::getCardWidth(),
                   PokerCardView::getCardHeight());
 
-    // 开启 FPS 显示，便于开发调试。
-    director->setDisplayStats(true);
-
-    // 固定渲染间隔。
-    director->setAnimationInterval(1.0f / 60);
+    // FPS 显示与帧率由配置控制。
+    director->setDisplayStats(gameConfig.getShowStats());
+    director->setAnimationInterval(1.0f / gameConfig.getFps());
 
     // 设计分辨率固定为配置值；SHOW_ALL 保持宽高比。
     glview->setDesignResolutionSize(gameConfig.getDesignWidth(), gameConfig.getDesignHeight(), ResolutionPolicy::SHOW_ALL);

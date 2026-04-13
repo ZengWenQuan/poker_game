@@ -1,10 +1,20 @@
+/**
+ * @file GameState.cpp
+ * @brief 游戏状态数据模型实现。
+ *
+ * 主要功能:
+ *   - 持有主牌区列表、底牌堆、废牌堆、奖励牌
+ *   - 设置/获取可见明牌窗口数量
+ *   - 初始化布局、移动卡牌、翻开卡牌
+ */
 #include "GameState.h"
+#include "config/GlobalConfig.h"
 #include <algorithm>
 
 void GameState::setVisibleTopCardCount(int count)
 {
-    // 当前玩法只支持 1~3 张明牌窗口，这里统一收敛外部输入。
-    _visibleTopCardCount = std::max(1, std::min(count, 3));
+    auto& cfg = GlobalConfig::getInstance();
+    _visibleTopCardCount = std::max(cfg.getVisibleTopCardCountMin(), std::min(count, cfg.getVisibleTopCardCountMax()));
 }
 
 int GameState::getVisibleTopCardCount() const
@@ -56,13 +66,20 @@ void GameState::initializeGame()
     _reserveDeck = CardDeck();
     _openTopCards.clear();
     _wastePile.clear();
+    _rewardPayload.clear();
 
     const int totalSlots = _layoutConfig.getTotalSlots();
+    int rewardSlotCount = 0;
+    for (const auto& slot : _layoutConfig.getSlots())
+    {
+        if (slot.isReward) ++rewardSlotCount;
+    }
     _mainAreaSlots.resize(totalSlots);
 
-    // 场上槽位 + 顶部明牌窗口，是完成开局的最低牌量；不足时自动扩展到多副牌。
-    const int requiredCards = totalSlots + _visibleTopCardCount;
-    const int deckCount = std::max(1, (requiredCards + 51) / 52);
+    // 场上槽位（排除奖励牌）+ 顶部明牌窗口 + 每张奖励牌预留的底牌。
+    auto& cfg = GlobalConfig::getInstance();
+    const int requiredCards = (totalSlots - rewardSlotCount) + _visibleTopCardCount + rewardSlotCount * cfg.getRewardCardsPerBonus();
+    const int deckCount = std::max(1, (requiredCards + cfg.getStandardDeckSize() - 1) / cfg.getStandardDeckSize());
     CardDeck deck = CardDeck::createMultipleStandardDecks(deckCount);
     deck.shuffle();
 
@@ -70,7 +87,22 @@ void GameState::initializeGame()
     {
         // 开局时只有最上层、没有父节点压住的槽位需要直接翻开。
         const bool faceUp = _coveringParents[i].empty();
-        _mainAreaSlots[i].pushCard(deck.dealCard(), faceUp);
+        const auto& slotLayout = _layoutConfig.getSlots()[i];
+        if (slotLayout.isReward)
+        {
+            // 奖励牌本身不占用普通牌，但要预留底牌。
+            std::vector<PokerCard> payload;
+            for (int p = 0; p < cfg.getRewardCardsPerBonus() && !deck.isEmpty(); ++p)
+            {
+                payload.push_back(deck.dealCard());
+            }
+            _rewardPayload[i] = payload;
+            _mainAreaSlots[i].pushCard(PokerCard::RewardCard(), faceUp);
+        }
+        else
+        {
+            _mainAreaSlots[i].pushCard(deck.dealCard(), faceUp);
+        }
     }
 
     // 顶部明牌窗口优先补满，确保玩家开局就能操作。
@@ -86,6 +118,24 @@ void GameState::initializeGame()
         reserveCards.push_back(deck.dealCard());
     }
     _reserveDeck.reset(reserveCards);
+
+    // 若关卡配置把奖励牌暴露在初始态，则立即触发其奖励，避免停留在场上。
+    for (int i = 0; i < totalSlots; ++i)
+    {
+        if (_mainAreaSlots[i].isEmpty()) continue;
+        if (!_mainAreaSlots[i].topCard().isReward()) continue;
+        if (!isSlotExposed(i)) continue;
+        auto it = _rewardPayload.find(i);
+        if (it != _rewardPayload.end())
+        {
+            for (const auto& c : it->second)
+            {
+                _reserveDeck.addCardToTop(c);
+            }
+            _rewardPayload.erase(it);
+            _mainAreaSlots[i].popCard();
+        }
+    }
 }
 
 // 获取当前顶部窗口最上方的牌。
@@ -200,8 +250,9 @@ int GameState::slotCount() const
     return static_cast<int>(_mainAreaSlots.size());
 }
 
-// 从槽位移走顶牌，并翻开必要的子节点；返回移走的牌。
-PokerCard GameState::removeCardFromSlot(int index, std::vector<int>* revealedSlotIndices)
+PokerCard GameState::removeCardFromSlot(int index,
+                                        std::vector<int>* revealedSlotIndices,
+                                        std::vector<RewardGrant>* rewardGrants)
 {
     PokerCard removedCard = _mainAreaSlots[index].popCard();
 
@@ -224,6 +275,33 @@ PokerCard GameState::removeCardFromSlot(int index, std::vector<int>* revealedSlo
             if (revealedSlotIndices != nullptr)
             {
                 revealedSlotIndices->push_back(childIndex);
+            }
+
+            // 奖励牌在被翻开且已暴露时立即触发。
+            if (!_mainAreaSlots[childIndex].isEmpty() &&
+                _mainAreaSlots[childIndex].topCard().isReward())
+            {
+                const bool exposed = isSlotExposed(childIndex);
+                if (exposed)
+                {
+                    auto it = _rewardPayload.find(childIndex);
+                    if (it != _rewardPayload.end())
+                    {
+                        for (const auto& c : it->second)
+                        {
+                            _reserveDeck.addCardToTop(c);
+                        }
+                        if (rewardGrants)
+                        {
+                            RewardGrant grant;
+                            grant.slotIndex = childIndex;
+                            grant.payload = it->second;
+                            rewardGrants->push_back(grant);
+                        }
+                        _rewardPayload.erase(it);
+                        _mainAreaSlots[childIndex].popCard(); // 奖励牌触发后移除
+                    }
+                }
             }
         }
     }
@@ -271,4 +349,23 @@ bool GameState::isWin() const
         }
     }
     return true;
+}
+
+void GameState::undoReward(const RewardGrant& grant)
+{
+    // 回滚预存牌到奖励映射，并把奖励牌放回槽位顶端（保持面朝下）。
+    for (size_t i = 0; i < grant.payload.size(); ++i)
+    {
+        if (!_reserveDeck.isEmpty())
+        {
+            _reserveDeck.popTopCard();
+        }
+    }
+    _rewardPayload[grant.slotIndex] = grant.payload;
+    if (!_mainAreaSlots[grant.slotIndex].isEmpty())
+    {
+        // 理论上触发后槽位应为空，这里做保护避免重复叠加。
+        _mainAreaSlots[grant.slotIndex].popCard();
+    }
+    _mainAreaSlots[grant.slotIndex].pushCard(PokerCard::RewardCard(), false);
 }

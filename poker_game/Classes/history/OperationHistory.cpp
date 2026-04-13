@@ -1,10 +1,20 @@
+/**
+ * @file OperationHistory.cpp
+ * @brief 操作历史记录实现。
+ *
+ * 主要功能:
+ *   - recordMatch: 记录匹配操作
+ *   - recordRecycle: 记录回收操作
+ *   - clear: 清空历史
+ */
 #include "history/OperationHistory.h"
 
 // 记录一次匹配操作以供撤销。
 void OperationHistory::recordMatch(const PokerCard& movedCard,
                                    int slotIndex,
                                    const std::vector<int>& revealedSlotIndices,
-                                   const std::vector<PokerCard>& previousOpenTopCards)
+                                   const std::vector<PokerCard>& previousOpenTopCards,
+                                   const std::vector<RewardGrant>& rewardGrants)
 {
     // 撤销匹配至少要恢复顶部窗口、来源槽位和被翻开的子节点。
     GameOperation operation;
@@ -13,6 +23,7 @@ void OperationHistory::recordMatch(const PokerCard& movedCard,
     operation.slotIndex = slotIndex;
     operation.revealedSlotIndices = revealedSlotIndices;
     operation.previousOpenTopCards = previousOpenTopCards;
+    operation.rewardGrants = rewardGrants;
     _operations.push_back(operation);
 }
 

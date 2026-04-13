@@ -1,3 +1,13 @@
+/**
+ * @file CardSlot.cpp
+ * @brief 卡槽数据模型实现。
+ *
+ * 主要功能:
+ *   - pushCard: 压入卡牌
+ *   - popCard: 弹出顶部卡牌
+ *   - getTopCard: 获取顶部卡牌
+ *   - 计算槽位覆盖关系
+ */
 #include "CardSlot.h"
 
 CardSlot::CardSlot()

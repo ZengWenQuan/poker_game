@@ -1,8 +1,21 @@
+/**
+ * @file GameSceneUI.cpp
+ * @brief 游戏 UI 辅助功能实现。
+ *
+ * 主要功能:
+ *   - 构建顶栏撤销按钮
+ *   - 更新状态栏文本 (STATUS/撤销/胜利等)
+ *   - 语言切换 (toggleLanguage) 和全量 UI 刷新 (refreshAllUI)
+ */
 #include "GameScene.h"
+#include "editor/CustomLayoutEditor.h"
 #include "view/MainAreaView.h"
 #include "view/TopAreaView.h"
+#include "view/UILabelHelper.h"
 #include "config/GlobalConfig.h"
 #include "presenter/GameplayPresenter.h"
+#include "presenter/SceneChromePresenter.h"
+#include "presenter/SceneUIManager.h"
 
 USING_NS_CC;
 
@@ -50,8 +63,8 @@ void GameScene::buildUI()
                                 origin.y + visibleSize.height * 0.5f));
     addChild(_mainArea, 1);
 
-    auto* undoLabel = Label::createWithSystemFont(strings.get("undo"), theme.getFont(), theme.getFontSize("undo"));
-    undoLabel->setTextColor(Color4B::WHITE);
+    auto* undoLabel = UiLabelHelper::create(strings.get("undo"), theme.getFont(), theme.getFontSize("undo"));
+    undoLabel->setTextColor(theme.getColor4B("buttonText"));
     _undoMenuItem = MenuItemLabel::create(undoLabel, [this](Ref*) {
         if (!isGameplayMode()) return;
         _gameplayPresenter->handleResult(_controller->onUndo());
@@ -61,22 +74,53 @@ void GameScene::buildUI()
     menu->setPosition(Vec2(origin.x + visibleSize.width - cfg.getUndoPosition().x,
                            origin.y + cfg.getUndoPosition().y));
     addChild(menu, 5);
+    if (_sceneChromePresenter) _sceneChromePresenter->bindUndo(_undoMenuItem);
 
-    _statusLabel = Label::createWithSystemFont("", theme.getFont(), theme.getFontSize("status"));
+    _statusLabel = UiLabelHelper::create("", theme.getFont(), theme.getFontSize("status"));
     _statusLabel->setPosition(Vec2(origin.x + visibleSize.width * cfg.getStatusPositionRatio().x,
                                    origin.y + visibleSize.height * cfg.getStatusPositionRatio().y));
     _statusLabel->setTextColor(theme.getColor4B("statusText"));
     addChild(_statusLabel, 5);
+
+    // 将 UI 组件绑定到 SceneUIManager。
+    if (_sceneUIManager)
+    {
+        _sceneUIManager->bindStatusLabel(_statusLabel);
+        _sceneUIManager->bindUndoMenuItem(_undoMenuItem);
+    }
 }
 
 // 更新状态栏文案和可选颜色。
 void GameScene::setStatusText(const std::string& text, const Color4B* color)
 {
-    if (_statusLabel == nullptr) return;
-    _statusLabel->setString(text);
-    if (color)
+    if (_sceneUIManager) _sceneUIManager->setStatusText(text, color);
+}
+
+void GameScene::toggleLanguage()
+{
+    auto& cfg = GlobalConfig::getInstance();
+    cfg.setLanguage(cfg.getLanguage() == "en" ? "zh" : "en");
+    refreshAllUI();
+}
+
+std::string GameScene::getCurrentLevelDisplayName() const
+{
+    return _layoutFlowController.currentDisplayName(_customLayoutEditor && _customLayoutEditor->isActive(),
+                                                    _customLayoutEditor ? _customLayoutEditor->getCurrentLayoutName() : std::string());
+}
+
+void GameScene::refreshAllUI()
+{
+    if (_sceneChromePresenter)
     {
-        _statusLabel->setTextColor(*color);
+        _sceneChromePresenter->refreshAll(getCurrentLevelDisplayName(),
+                                          _customLayoutEditor && _customLayoutEditor->isActive(),
+                                          _selectedVisibleTopCardCount);
     }
-    // 未传颜色时保持当前颜色不变，便于胜利等特殊状态延续显示风格。
+
+    // 顶部区域文案（底牌/废牌/回收）
+    if (_topArea)
+    {
+        _topArea->refreshStrings();
+    }
 }

@@ -1,10 +1,22 @@
+/**
+ * @file GameState.h
+ * @brief 游戏状态数据模型头文件。
+ *
+ * 主要功能:
+ *   - 主牌区 (mainPiles)、底牌堆 (reservePile)、废牌堆 (wastePile)
+ *   - 可见牌数量、奖励牌
+ *   - initLayout / moveCard / flipCard
+ */
 #ifndef POKER_GAME_GAME_STATE_H
 #define POKER_GAME_GAME_STATE_H
 
 #include "CardDeck.h"
 #include "CardSlot.h"
 #include "LayoutConfig.h"
+#include "RewardGrant.h"
 #include <vector>
+#include <unordered_map>
+#include <unordered_set>
 
 // 游戏状态核心：维护布局、主牌区、顶部明牌、底牌堆与废牌堆。
 class GameState
@@ -61,8 +73,11 @@ public:
     int slotCount() const;
 
     // 从主牌区移走一张牌，并返回因此被翻开的槽位列表，供撤销与界面刷新使用。
-    // index: 来源槽位；revealedSlotIndices: 输出被翻开的槽位索引。
-    PokerCard removeCardFromSlot(int index, std::vector<int>* revealedSlotIndices = nullptr);
+    // index: 来源槽位；revealedSlotIndices: 输出被翻开的槽位索引；
+    // rewardGrants: 触发的奖励牌及其预存底牌。
+    PokerCard removeCardFromSlot(int index,
+                                 std::vector<int>* revealedSlotIndices = nullptr,
+                                 std::vector<RewardGrant>* rewardGrants = nullptr);
 
     // 把移走的牌恢复回槽位，并撤销当次操作触发的翻牌效果。
     // index: 目标槽位；card: 要恢复的牌；revealedSlotIndices: 需要恢复朝下的槽位列表。
@@ -77,6 +92,9 @@ public:
 
     bool isWin() const;
 
+    // 撤销奖励牌触发：把奖励牌与预存底牌放回。
+    void undoReward(const RewardGrant& grant);
+
 private:
     // 把布局中的 covers 转成正反两个索引表：
     // 1. _coveringParents: 某槽位被哪些父节点压住
@@ -89,9 +107,12 @@ private:
     std::vector<std::vector<int>> _coveredChildren; // index -> 子节点列表
     CardDeck _reserveDeck;                          // 底牌堆，抽牌来源
     std::vector<PokerCard> _openTopCards;           // 顶部可操作明牌窗口
-    int _visibleTopCardCount = 1;                   // 明牌窗口大小，限制在 [1, 3]
+    int _visibleTopCardCount = 1;                   // 明牌窗口大小，范围由配置控制
 
     std::vector<PokerCard> _wastePile;              // 被顶部窗口挤出的旧牌，供回收使用
+
+    // 奖励牌预留的底牌映射：槽位索引 -> 预存的三张牌。
+    std::unordered_map<int, std::vector<PokerCard>> _rewardPayload;
 };
 
 #endif

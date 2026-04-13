@@ -1,16 +1,24 @@
+/**
+ * @file CardDeck.cpp
+ * @brief 卡牌堆数据模型实现。
+ *
+ * 主要功能:
+ *   - createMultipleStandardDecks: 构造多副标准牌
+ *   - shuffle: 洗牌
+ *   - deal: 发牌
+ */
 #include "CardDeck.h"
+#include "config/GlobalConfig.h"
 
 CardDeck::CardDeck()
 {
 }
 
-// 构造多副标准牌的牌堆，不洗牌。
 CardDeck CardDeck::createMultipleStandardDecks(int deckCount)
 {
     CardDeck deck;
     const int safeDeckCount = std::max(1, deckCount);
 
-    // 先顺序生成标准牌组，洗牌交给后续流程。
     for (int copy = 0; copy < safeDeckCount; ++copy)
     {
         for (int s = 0; s < 4; ++s)
@@ -39,6 +47,12 @@ PokerCard CardDeck::dealCard()
     PokerCard card = _cards.back();
     _cards.pop_back();
     return card;
+}
+
+// 从顶部弹出一张牌（便于撤销还原）。
+PokerCard CardDeck::popTopCard()
+{
+    return dealCard();
 }
 
 // 牌堆是否为空。

@@ -1,3 +1,12 @@
+/**
+ * @file CustomLayoutEditor.h
+ * @brief 自定义布局编辑器头文件。
+ *
+ * 主要功能:
+ *   - isActive / getCurrentLayoutName / getCurrentLayoutConfig
+ *   - enter / exit / startNewLayout / showSaveDialog
+ *   - onCardDropped / addSlot / removeSlot
+ */
 #ifndef POKER_GAME_CUSTOM_LAYOUT_EDITOR_H
 #define POKER_GAME_CUSTOM_LAYOUT_EDITOR_H
 
@@ -31,10 +40,22 @@ public:
     void enter();
     // 退出编辑模式并清理 UI。
     void exit();
-    // 激活/退出的开关。
-    void toggle();
+    // 重置为一个全新的空白关卡。
+    void startNewLayout();
+    // 将现有布局加载到编辑器中，便于在当前布局基础上修改。
+    void loadLayout(const LayoutConfig& layout,
+                    const std::string& relativePath,
+                    const std::string& layoutName);
     // 打开保存对话框。
     void showSaveDialog();
+    // 按当前状态执行保存：新关卡要求输入名称，已有关卡直接覆盖保存。
+    void saveCurrentLayout();
+    // 当前是否处于“新建空白关卡”状态。
+    bool isEditingNewLayout() const;
+    // 当前编辑关卡的展示名称。
+    const std::string& getCurrentLayoutName() const;
+    // 若存在未保存修改，则先询问保存，再决定是否继续后续动作。
+    void confirmSaveBeforeAction(const std::function<void()>& onContinue);
 
 private:
     // 下面这些辅助函数分别负责：生成编辑用牌组、计算编辑区域、保存布局元数据。
@@ -44,9 +65,13 @@ private:
     cocos2d::Rect getCustomTrayRect() const;
     // 获取主编辑区域矩形。
     cocos2d::Rect getCustomMainAreaRect() const;
+    // 获取主编辑区网格步长，按宽高的 1/100 计算。
+    cocos2d::Vec2 getCustomMainAreaGridStep() const;
     // 计算托盘中某张牌的默认位置。
     // index: 牌在托盘中的序号。
     cocos2d::Vec2 getCustomTrayPosition(int index) const;
+    // 把牌中心吸附到主编辑区网格。
+    cocos2d::Vec2 snapToMainAreaGrid(const cocos2d::Vec2& position) const;
     // 创建牌面视图并放入托盘。
     void buildEditorDeckView();
     // 清空编辑器层与状态。
@@ -56,20 +81,21 @@ private:
     void bringCardToFront(int cardIndex);
     // 隐藏保存对话框层。
     void hideSaveDialog();
-    // 将当前布局保存到磁盘。
-    // layoutName: 用户输入的布局名称。
-    void saveLayout(const std::string& layoutName);
-    // 根据牌索引序列生成布局元数据。
-    // slots: 输出槽位列表；cardIndices: 排序后的牌索引。
-    void rebuildLayoutMetadata(std::vector<SlotLayout>& slots,
-                               const std::vector<int>& cardIndices) const;
-    // 清理文件名（去掉非法字符、空白）。
-    static std::string sanitizeLayoutFileName(const std::string& rawName);
+    // 将当前编辑状态写入指定文件。
+    void saveLayoutToPath(const std::string& relativePath, const std::string& layoutName);
+    // 统一更新“已修改未保存”标记。
+    void markDirty();
+    // 关闭确认保存弹窗。
+    void hideConfirmDialog();
 
     cocos2d::Node* _host; // 编辑器宿主，一般为 GameScene
     bool _active = false;
+    bool _isDirty = false;
+    bool _isNewLayout = true;
+    cocos2d::EventListenerMouse* _mouseListener = nullptr; // 鼠标右键监听
     cocos2d::LayerColor* _editorLayer = nullptr;     // 编辑层
     cocos2d::LayerColor* _saveDialogLayer = nullptr; // 保存对话框层
+    cocos2d::LayerColor* _confirmDialogLayer = nullptr;
     cocos2d::ui::EditBox* _saveNameEditBox = nullptr;
     std::vector<PokerCard> _cards;                   // 编辑器里的整副牌
     std::vector<PokerCardView*> _cardViews;          // 对应牌面视图
@@ -78,6 +104,9 @@ private:
     int _dragCardIndex = -1;                         // 当前拖动的牌索引
     cocos2d::Vec2 _dragOffset;                       // 触点到牌中心的偏移
     int _zCounter = 100;                             // 用于把最近操作的牌提到最上层
+    std::string _currentLayoutPath;
+    std::string _currentLayoutName;
+    std::function<void()> _pendingContinueAction;
     std::function<void(const std::string&)> _onStatus;
     std::function<void(const std::string&, const std::string&)> _onSaved;
 };

@@ -1,3 +1,12 @@
+/**
+ * @file MainAreaView.cpp
+ * @brief 主牌区视图实现。
+ *
+ * 主要功能:
+ *   - 管理所有主牌区槽位视图 (CardSlotView 列表)
+ *   - 转发卡牌点击事件
+ *   - 布局计算 (根据槽位数量动态排列)
+ */
 #include "MainAreaView.h"
 #include "PokerCardView.h"
 #include "config/GlobalConfig.h"

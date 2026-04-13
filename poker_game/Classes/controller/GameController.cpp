@@ -1,7 +1,19 @@
+/**
+ * @file GameController.cpp
+ * @brief 游戏控制器实现。
+ *
+ * 主要功能:
+ *   - 处理玩家操作: 点击底牌/点击主牌区/点击回收
+ *   - 分发匹配/移动/翻开等逻辑到 MatchEngine 和 GameState
+ *   - 管理 UndoManager 进行撤销/重做
+ *   - 管理游戏流程: 胜利判定、继续下一关
+ */
 #include "GameController.h"
+#include "model/RewardGrant.h"
 
 GameController::GameController(GameState& state)
     : _state(state)
+    , _highlightService(state)
 {
 }
 
@@ -24,6 +36,9 @@ GameActionResult GameController::onSlotCardTapped(int slotIndex)
     // 只有当前可见的顶牌才允许被点击参与匹配。
     if (slot.isEmpty() || !slot.isTopCardFaceUp()) return result;
 
+    // 奖励牌不会参与匹配，翻开时会自动触发。
+    if (slot.topCard().isReward()) return result;
+
     const PokerCard& slotCard = slot.topCard();
     const auto& openTopCards = _state.getOpenTopCards();
     int matchedTopIndex = -1;
@@ -45,9 +60,20 @@ GameActionResult GameController::onSlotCardTapped(int slotIndex)
     // 先记录顶部窗口旧状态，再执行状态变更，保证撤销可以回到完整前态。
     std::vector<PokerCard> previousOpenTopCards = _state.getOpenTopCards();
     std::vector<int> revealedSlotIndices;
-    PokerCard movedCard = _state.removeCardFromSlot(slotIndex, &revealedSlotIndices);
+    std::vector<RewardGrant> rewardGrants;
+    PokerCard movedCard = _state.removeCardFromSlot(slotIndex, &revealedSlotIndices, &rewardGrants);
 
-    _operationHistory.recordMatch(movedCard, slotIndex, revealedSlotIndices, previousOpenTopCards);
+    _operationHistory.recordMatch(movedCard, slotIndex, revealedSlotIndices, previousOpenTopCards, rewardGrants);
+
+    // 检测是否有奖励牌被触发，记录奖励牌槽位索引供动画使用。
+    for (const auto& grant : rewardGrants)
+    {
+        if (grant.slotIndex >= 0)
+        {
+            result.rewardSlotIndex = grant.slotIndex;
+            break; // 目前只处理第一个奖励牌
+        }
+    }
 
     // 匹配成功后，用主牌区移出的牌替换掉被匹配的顶部明牌。
     _state.replaceOpenTopCard(matchedTopIndex, movedCard);
@@ -112,6 +138,10 @@ GameActionResult GameController::onUndo()
         // 撤销匹配时，先恢复顶部窗口，再恢复主牌区与翻牌状态。
         _state.restoreOpenTopCards(operation.previousOpenTopCards);
         _state.restoreCardToSlot(operation.slotIndex, operation.movedCard, operation.revealedSlotIndices);
+        for (const auto& grant : operation.rewardGrants)
+        {
+            _state.undoReward(grant);
+        }
         result.type = GameActionType::UndoMatch;
         result.slotIndex = operation.slotIndex;
         result.card = operation.movedCard;
@@ -136,34 +166,4 @@ GameActionResult GameController::onUndo()
 
 const std::vector<PokerCard>& GameController::getOpenTopCards() const { return _state.getOpenTopCards(); }
 
-// 槽位是否可与任意顶部明牌匹配，用于高亮判定。
-bool GameController::isSlotMatchable(int slotIndex) const
-{
-    if (slotIndex < 0 || slotIndex >= _state.slotCount()) return false;
-    const auto& slot = _state.getSlot(slotIndex);
-    if (slot.isEmpty() || !slot.isTopCardFaceUp()) return false;
-
-    // 只要能和任意顶部明牌匹配，就认为这个槽位应被高亮。
-    for (const auto& topCard : _state.getOpenTopCards())
-    {
-        if (MatchEngine::canMatch(slot.topCard(), topCard))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-// 返回全部槽位的可匹配状态数组。
-std::vector<bool> GameController::getHighlightStates() const
-{
-    std::vector<bool> highlightStates;
-    highlightStates.reserve(_state.slotCount());
-
-    for (int i = 0; i < _state.slotCount(); ++i)
-    {
-        highlightStates.push_back(isSlotMatchable(i));
-    }
-
-    return highlightStates;
-}
+const HighlightService& GameController::getHighlightService() const { return _highlightService; }
