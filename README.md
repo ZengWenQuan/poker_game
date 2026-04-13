@@ -181,6 +181,7 @@ cmake --build poker_game/build -j4
 
 | 文档 | 说明 |
 |------|------|
+| [环境配置指南](poker_game/docs/setup.md) | 从零搭建开发环境（系统依赖、构建、运行、常见问题） |
 | [架构设计](poker_game/docs/architecture.md) | 分层架构与数据流 |
 | [数据模型层](poker_game/docs/model.md) | CardTypes / PokerCard / CardDeck / CardSlot / GameState / LayoutConfig |
 | [控制器层](poker_game/docs/controller.md) | GameController / MatchEngine / UndoManager |
